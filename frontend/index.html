@@ -1,0 +1,5076 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>GET FIT FASTER</title>
+
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0a0c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Get Fit">
+  <link rel="apple-touch-icon" href="/assets/icon-512.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <!-- MediaPipe Pose -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  <!-- Video Background Support (Spline removed) -->
+  <style>
+    /* —-- TOKENS —--------------------------------------------------------- */
+    :root {
+      --black: #050505;
+      --black2: rgba(15, 15, 15, 0.7);
+      --black3: rgba(20, 20, 20, 0.55);
+      --black4: rgba(25, 25, 25, 0.4);
+      --card-bg: rgba(12, 12, 12, 0.6);
+      --volt: #ccff00;
+      --volt2: #e0ff4d;
+      --volt-glow: rgba(204, 255, 0, 0.25);
+      --white: #f5f5f5;
+      --gray1: #a0a0a0;
+      --gray2: #555555;
+      --gray3: #2a2a2a;
+      --red: #ff3366;
+      --blue: #00e5ff;
+      --orange: #ff6b00;
+      --border: rgba(255, 255, 255, 0.08);
+      --font-display: 'Outfit', sans-serif;
+      --font-num: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --radius: 24px;
+      --radius-sm: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::selection {
+      background: var(--volt);
+      color: var(--black);
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--gray3);
+      border-radius: 2px;
+    }
+
+    /* —-- ANIMATIONS —---------------------------------------------------- */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(24px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0
+      }
+
+      to {
+        opacity: 1
+      }
+    }
+
+    @keyframes slideLeft {
+      from {
+        opacity: 0;
+        transform: translateX(40px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0)
+      }
+    }
+
+    @keyframes pulseVolt {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 var(--volt-glow)
+      }
+
+      50% {
+        box-shadow: 0 0 40px 8px var(--volt-glow)
+      }
+    }
+
+    @keyframes ringFill {
+      from {
+        stroke-dashoffset: 440
+      }
+
+      to {
+        stroke-dashoffset: var(--target)
+      }
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: -200% 0
+      }
+
+      100% {
+        background-position: 200% 0
+      }
+    }
+
+    @keyframes scaleIn {
+      from {
+        opacity: 0;
+        transform: scale(.92)
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1)
+      }
+    }
+
+    @keyframes ticker {
+      0% {
+        transform: translateX(0)
+      }
+
+      100% {
+        transform: translateX(-50%)
+      }
+    }
+
+    .anim-fade-up {
+      animation: fadeUp .5s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    .anim-slide-left {
+      animation: slideLeft .5s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    .anim-scale {
+      animation: scaleIn .4s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    /* —-- AUTH SCREEN (STRAVA-INSPIRED) —--------------------------------- */
+    #auth-screen {
+      position: fixed;
+      inset: 0;
+      background: #f8f8f8;
+      display: grid;
+      grid-template-columns: 30% 40% 30%;
+      width: 100%;
+      min-height: 100vh;
+      z-index: 5000;
+      overflow-y: auto;
+    }
+
+    .auth-side-left {
+      position: relative;
+      background-image: url('/images/run.jpg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      height: 100vh;
+      width: 100%;
+      filter: brightness(0.8) contrast(1.1);
+    }
+
+    .auth-side-right {
+      position: relative;
+      background-image: url('/images/hike.png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      height: 100vh;
+      width: 100%;
+      filter: brightness(0.8) contrast(1.1);
+    }
+
+    .auth-side-left::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to right, rgba(5,5,5,0) 0%, rgba(5,5,5,0.4) 40%, var(--black) 100%);
+      z-index: 1;
+    }
+
+    .auth-side-right::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to left, rgba(5,5,5,0) 0%, rgba(5,5,5,0.4) 40%, var(--black) 100%);
+      z-index: 1;
+    }
+
+    .auth-center {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 60px;
+      background: linear-gradient(180deg, #050505, #111111);
+      color: #fff;
+      text-align: center;
+      min-height: 100vh;
+      z-index: 10;
+    }
+
+    .auth-card-glass {
+      background: rgba(15, 15, 15, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(198, 255, 0, 0.15);
+      border-radius: 24px;
+      box-shadow: 0 20px 50px rgba(198, 255, 0, 0.08);
+      padding: 48px;
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .auth-center h1 {
+      font-family: var(--font-display);
+      font-size: 38px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .auth-center .subtext {
+      font-family: var(--font-num);
+      font-size: 15px;
+      color: #aaa;
+      margin-bottom: 32px;
+      line-height: 1.5;
+      max-width: 400px;
+    }
+
+    .auth-toggle-text {
+      font-family: var(--font-num);
+      font-size: 15px;
+      color: #888;
+      margin-bottom: 32px;
+    }
+
+    .auth-toggle-text span {
+      color: #C6FF00;
+      font-weight: 700;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .auth-toggle-text span:hover {
+      color: #E2FF66;
+    }
+
+    .auth-buttons {
+      width: 100%;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn-strava {
+      width: 100%;
+      padding: 14px;
+      border-radius: 14px;
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.3s ease;
+      border: 1px solid #333;
+      background: #111;
+      color: #fff;
+    }
+
+    .btn-strava:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      border-color: #555;
+    }
+
+    .btn-strava.btn-email {
+      background: linear-gradient(90deg, #B7FF00, #D9FF66);
+      color: #000;
+      font-weight: bold;
+      border-radius: 14px;
+      padding: 16px;
+      border: none;
+    }
+
+    .btn-strava.btn-email:hover {
+      box-shadow: 0 8px 20px rgba(198, 255, 0, 0.3);
+      transform: translateY(-2px);
+    }
+
+    /* Form styling for email signup/login */
+    .auth-form-container {
+      width: 100%;
+      text-align: left;
+    }
+
+    .auth-form-container .field-label {
+      color: #aaa;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .auth-form-container .field-input {
+      background: #111;
+      border: 1px solid rgba(198, 255, 0, 0.2);
+      color: white;
+      border-radius: 14px;
+      padding: 16px;
+      width: 100%;
+      box-sizing: border-box;
+      transition: all 0.2s;
+    }
+
+    .auth-form-container .field-input:focus {
+      border-color: #C6FF00;
+      box-shadow: 0 0 0 3px rgba(198, 255, 0, 0.15);
+      outline: none;
+    }
+
+    .auth-form-container .field-input::placeholder {
+      color: #666;
+    }
+
+    .btn-back {
+      background: none;
+      border: none;
+      color: #C6FF00;
+      font-family: var(--font-num);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 24px;
+      display: inline-block;
+      transition: opacity 0.2s;
+    }
+
+    .btn-back:hover {
+      opacity: 0.8;
+    }
+
+    /* —-- MULTI-VIDEO BG STYLING —----------------------------------------- */
+    #video-bg-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .bg-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: opacity;
+      filter: brightness(1.2) contrast(1.05); /* Boosted brightness and contrast */
+      image-rendering: -webkit-optimize-contrast;
+    }
+
+    .bg-video.active {
+      opacity: 1; /* Maximum visibility */
+    }
+
+    .spline-overlay {
+      position: fixed;
+      inset: 0;
+      background: transparent; /* Removed dark gradients */
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    @media(max-width: 900px) {
+      #auth-screen {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+      }
+
+      .auth-side-left,
+      .auth-side-right {
+        height: 30vh;
+      }
+
+      .auth-center {
+        min-height: 40vh;
+        padding: 40px 20px;
+      }
+    }
+
+    /* —-- APP SHELL —----------------------------------------------------- */
+    /* —-- FLOATING NAVBAR —---------------------------------------------- */
+    .sidebar {
+      position: fixed;
+      top: 32px;
+      right: 32px;
+      width: 190px;
+      height: 62px;
+      background: rgba(15, 15, 15, 0.45);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 4000;
+      /* Above menu overlay */
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+      margin: 0;
+      max-width: none;
+    }
+
+    /* Scroll Shrink Effect */
+    .sidebar.scrolled {
+      height: 52px;
+      width: 170px;
+      top: 24px;
+      right: 24px;
+      background: rgba(10, 10, 10, 0.7);
+    }
+
+    .sidebar:hover {
+      transform: scale(1.03);
+      background: rgba(20, 20, 20, 0.55);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .sb-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .sb-logo {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sb-logo-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--volt);
+      border-radius: 50%;
+      box-shadow: 0 0 12px var(--volt);
+      animation: pulseVolt 2s infinite;
+    }
+
+    .hamburger-btn {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+      z-index: 102;
+      margin: 0;
+    }
+
+    .hamburger-line {
+      width: 22px;
+      height: 1.5px;
+      background: rgba(255, 255, 255, 0.9);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 2px;
+      transform-origin: center;
+    }
+
+    /* X State for Hamburger */
+    .sidebar.menu-open .hamburger-line:nth-child(1) {
+      transform: translateY(6.5px) rotate(45deg);
+    }
+
+    .sidebar.menu-open .hamburger-line:nth-child(2) {
+      opacity: 0;
+      transform: translateX(10px);
+    }
+
+    .sidebar.menu-open .hamburger-line:nth-child(3) {
+      transform: translateY(-6.5px) rotate(-45deg);
+    }
+
+    .sidebar.expanded {
+      width: 280px;
+      height: auto;
+      max-height: 90vh;
+      border-radius: 32px;
+      flex-direction: column;
+      padding: 24px;
+      justify-content: flex-start;
+      align-items: flex-start;
+    }
+
+    .sidebar.expanded .sb-top {
+      width: 100%;
+      justify-content: space-between;
+      margin-bottom: 30px;
+    }
+
+    .sb-nav-container {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.4s ease;
+    }
+
+    .sidebar.expanded .sb-nav-container {
+      display: flex;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .sb-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    .nav-btn {
+      width: 100%;
+      padding: 12px 18px;
+      background: transparent;
+      border: none;
+      border-radius: 12px;
+      color: var(--gray1);
+      text-align: left;
+      font-family: var(--font-num);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--white);
+    }
+
+    .nav-btn.active {
+      background: rgba(176, 38, 255, 0.1);
+      color: var(--volt);
+    }
+
+    @media(max-width: 700px) {
+      .sidebar {
+        width: 150px;
+        height: 52px;
+        top: 20px;
+        right: 20px;
+        padding: 0 16px;
+      }
+
+      .sidebar.scrolled {
+        width: 140px;
+        height: 48px;
+        top: 15px;
+        right: 15px;
+      }
+
+      .sb-logo {
+        font-size: 16px;
+      }
+    }
+
+    /* —-- FULLSCREEN MENU —----------------------------------------------- */
+    /* —-- FLOATING GLASS MENU GRID —--------------------------------------- */
+    .menu-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(30px) saturate(180%);
+      -webkit-backdrop-filter: blur(30px) saturate(180%);
+      z-index: 3000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      overflow-y: auto;
+      padding: 40px 20px;
+    }
+
+    .menu-glow-1 {
+      position: absolute;
+      top: 20%;
+      left: 20%;
+      width: 40vw;
+      height: 40vw;
+      background: radial-gradient(circle, rgba(204, 255, 0, 0.1), transparent 70%);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .menu-glow-2 {
+      position: absolute;
+      bottom: 10%;
+      right: 15%;
+      width: 35vw;
+      height: 35vw;
+      background: radial-gradient(circle, rgba(204, 255, 0, 0.08), transparent 70%);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .menu-overlay.active {
+      display: flex;
+      opacity: 1;
+    }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: 135px;
+      gap: 16px;
+      width: 100%;
+      max-width: 800px;
+      padding-top: 40px;
+    }
+
+    .bento-2x2 { grid-column: span 2; grid-row: span 2; }
+    .bento-1x2 { grid-column: span 1; grid-row: span 2; }
+    .bento-2x1 { grid-column: span 2; grid-row: span 1; }
+    .bento-1x1 { grid-column: span 1; grid-row: span 1; }
+
+    .menu-card {
+      position: relative;
+      background: rgba(20, 20, 22, 0.6);
+      backdrop-filter: blur(20px) saturate(150%);
+      -webkit-backdrop-filter: blur(20px) saturate(150%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      padding: 0;
+      text-decoration: none;
+      color: var(--white);
+      display: flex;
+      flex-direction: column;
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(40px) scale(0.95);
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+    }
+
+    .menu-card-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.5;
+      transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+      z-index: 0;
+      filter: saturate(1.2);
+    }
+
+    .menu-card-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(10, 10, 12, 0.95) 0%, rgba(10, 10, 12, 0.4) 60%, rgba(10, 10, 12, 0.1) 100%);
+      z-index: 1;
+      transition: opacity 0.5s ease;
+    }
+
+    .menu-card-content {
+      position: relative;
+      z-index: 2;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+    }
+
+    .bento-1x1 .menu-card-content, .bento-2x1 .menu-card-content {
+      padding: 20px;
+    }
+
+    .menu-overlay.active .menu-card {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    /* Stagger fade-in animation for cards */
+    .menu-overlay.active .menu-card:nth-child(1) { transition-delay: 0.05s; }
+    .menu-overlay.active .menu-card:nth-child(2) { transition-delay: 0.1s; }
+    .menu-overlay.active .menu-card:nth-child(3) { transition-delay: 0.15s; }
+    .menu-overlay.active .menu-card:nth-child(4) { transition-delay: 0.2s; }
+    .menu-overlay.active .menu-card:nth-child(5) { transition-delay: 0.25s; }
+    .menu-overlay.active .menu-card:nth-child(6) { transition-delay: 0.3s; }
+    .menu-overlay.active .menu-card:nth-child(7) { transition-delay: 0.35s; }
+    .menu-overlay.active .menu-card:nth-child(8) { transition-delay: 0.4s; }
+    .menu-overlay.active .menu-card:nth-child(9) { transition-delay: 0.45s; }
+    .menu-overlay.active .menu-card:nth-child(10) { transition-delay: 0.5s; }
+
+    .menu-card:hover .menu-card-bg {
+      transform: scale(1.08);
+      opacity: 0.7;
+    }
+
+    .menu-card:hover {
+      background: rgba(30, 30, 32, 0.7);
+      transform: translateY(-6px) scale(1.02) !important;
+      border-color: rgba(204, 255, 0, 0.4);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(204, 255, 0, 0.1);
+      z-index: 10;
+    }
+
+    .menu-card-icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .menu-card:hover .menu-card-icon {
+      transform: scale(1.1) rotate(-5deg);
+    }
+
+    .menu-card-title {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .bento-2x2 .menu-card-title {
+      font-size: 28px;
+      background: linear-gradient(135deg, #fff, var(--volt));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .bento-1x2 .menu-card-title {
+      font-size: 22px;
+    }
+
+    .menu-card-subtitle {
+      font-family: var(--font-num);
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 6px;
+      letter-spacing: 0.05em;
+    }
+
+    .menu-card-arrow {
+      position: absolute;
+      right: 20px;
+      bottom: 20px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--white);
+      font-size: 14px;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      backdrop-filter: blur(4px);
+    }
+
+    .menu-card:hover .menu-card-arrow {
+      background: var(--volt);
+      color: #000;
+      transform: translateX(4px) scale(1.1);
+      box-shadow: 0 0 15px var(--volt-glow);
+    }
+
+    @media(max-width: 768px) {
+      .menu-grid {
+        grid-template-columns: 1fr 1fr;
+        grid-auto-rows: 130px;
+        gap: 12px;
+      }
+
+      .bento-2x2 { grid-column: span 2; grid-row: span 2; }
+      .bento-1x2 { grid-column: span 1; grid-row: span 2; }
+      .bento-2x1 { grid-column: span 2; grid-row: span 1; }
+      .bento-1x1 { grid-column: span 1; grid-row: span 1; }
+      
+      .bento-2x2 .menu-card-title { font-size: 24px; }
+    }
+
+    @media(max-width: 480px) {
+      .menu-grid {
+        grid-template-columns: 1fr;
+        grid-auto-rows: 120px;
+      }
+      .bento-2x2, .bento-1x2, .bento-2x1, .bento-1x1 {
+        grid-column: span 1;
+        grid-row: span 1;
+      }
+      .bento-2x2 { grid-row: span 2; }
+    }
+
+    .card,
+    .hero-side-card,
+    .ring-card,
+    .menu-card {
+      transform-style: preserve-3d;
+      perspective: 1000px;
+      overflow: hidden;
+      will-change: transform;
+      backface-visibility: hidden;
+    }
+
+    .card::after,
+    .hero-side-card::after,
+    .ring-card::after,
+    .menu-card::after {
+      content: '';
+      position: absolute;
+      top: -150%;
+      left: -150%;
+      width: 300%;
+      height: 300%;
+      background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+      transform: rotate(45deg);
+      transition: all 0.6s;
+      pointer-events: none;
+    }
+
+    .card:hover::after,
+    .hero-side-card:hover::after,
+    .ring-card:hover::after,
+    .menu-card:hover::after {
+      top: 150%;
+      left: 150%;
+    }
+
+    .card-content {
+      transform: translateZ(20px);
+    }
+
+    .sb-section {
+      display: none;
+    }
+
+    .nav-btn {
+      padding: 10px 16px;
+      background: transparent;
+      border: none;
+      border-radius: 20px;
+      color: var(--gray1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .nav-btn:hover {
+      color: var(--white);
+      background: rgba(255, 255, 255, 0.05);
+      transform: translateY(-2px);
+    }
+
+    .nav-btn.active {
+      color: var(--white);
+      background: rgba(204, 255, 0, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(204, 255, 0, 0.15);
+    }
+
+    .nav-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40%;
+      height: 3px;
+      background: var(--volt);
+      border-radius: 3px 3px 0 0;
+      box-shadow: 0 -2px 10px var(--volt-glow);
+    }
+
+    .nav-icon {
+      display: none;
+    }
+
+    .nav-pill {
+      background: rgba(204, 255, 0, 0.15);
+      color: var(--volt);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+
+    .nav-btn.active .nav-pill {
+      background: var(--volt);
+      color: #fff;
+    }
+
+    .sb-bottom {
+      display: flex;
+      align-items: center;
+      margin-left: 20px;
+    }
+
+    .btn-logout {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: none;
+      border-radius: 50%;
+      color: var(--gray1);
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .btn-logout:hover {
+      border-color: var(--red);
+      color: var(--red);
+      background: rgba(255, 51, 51, .05);
+    }
+
+    .btn-logout span.logout-text {
+      display: none;
+    }
+
+    /* —-- CONTENT AREA —-------------------------------------------------- */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      position: relative;
+      padding: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .page {
+      display: none;
+      animation: pageIn 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    /* —-- PAGE HEADER —--------------------------------------------------- */
+    .page-header {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 60px;
+      margin-top: 40px;
+    }
+
+    .page-eyebrow {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--white);
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+
+    .page-title {
+      font-family: var(--font-display);
+      font-size: 86px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      background: linear-gradient(135deg, var(--white) 30%, var(--volt) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    /* —-- HERO LANDING —-------------------------------------------------- */
+    .hero-landing {
+      height: calc(100vh - 120px);
+      position: relative;
+      margin-bottom: 100px;
+      pointer-events: none;
+      overflow: hidden;
+      /* Prevent slide-in scrollbars */
+    }
+
+    .hero-text-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      /* Behind UI cards, above video/overlay */
+    }
+
+    .hero-word {
+      position: absolute;
+      font-family: var(--font-display);
+      font-weight: 900;
+      line-height: 0.9;
+      text-transform: lowercase;
+      color: rgba(255, 255, 255, 0.92);
+      letter-spacing: -0.05em;
+      text-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      white-space: nowrap;
+      opacity: 0;
+      transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .word-track {
+      top: 10%;
+      left: 5%;
+      font-size: clamp(4rem, 10vw, 9rem);
+      transform: translateX(-100px);
+    }
+
+    .word-your {
+      top: 13%;
+      right: 5%;
+      font-size: clamp(4rem, 9vw, 8rem);
+      font-style: italic;
+      transform: translateX(100px);
+    }
+
+    .word-activity {
+      top: 50%;
+      right: 5%;
+      font-size: clamp(5rem, 11vw, 10rem);
+      transform: translateY(100px);
+    }
+
+    .hero-word.in {
+      opacity: 1;
+      transform: translate(0, 0);
+    }
+
+    .hero-side-card {
+      position: absolute;
+      left: 6%;
+      bottom: 8%;
+      width: 320px;
+      background: linear-gradient(145deg, rgba(30, 30, 35, 0.85), rgba(15, 15, 18, 0.95));
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 30px;
+      pointer-events: auto;
+      z-index: 101;
+      animation: fadeUp 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: 1.2s;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+      cursor: pointer;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.4s ease;
+    }
+
+    .hero-side-card:hover {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(204, 255, 0, 0.15);
+      border-color: rgba(204, 255, 0, 0.3);
+    }
+
+    .hero-route-link {
+      font-family: var(--font-num);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--volt);
+      opacity: 0;
+      transform: translateX(-5px);
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .hero-side-card:hover .hero-route-link {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .hero-side-label {
+      font-family: var(--font-num);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gray1);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
+
+    .hero-side-val {
+      font-family: var(--font-display);
+      font-size: 42px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 20px;
+    }
+
+    .hero-side-map {
+      height: 120px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-side-map svg {
+      width: 80%;
+      height: 80%;
+      stroke: var(--white);
+      stroke-width: 1.5;
+      fill: none;
+      opacity: 0.4;
+    }
+
+    .hero-scroll-hint {
+      position: absolute;
+      bottom: -40px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-num);
+      font-size: 11px;
+      color: var(--gray1);
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hero-scroll-hint::after {
+      content: '';
+      width: 1px;
+      height: 40px;
+      background: linear-gradient(to bottom, var(--volt), transparent);
+    }
+
+    .page-date {
+      font-family: var(--font-num);
+      font-size: 13px;
+      color: var(--gray1);
+      text-align: right;
+      padding-top: 8px;
+    }
+
+    /* —-- TICKER BANNER —------------------------------------------------- */
+    .ticker-wrap {
+      display: none;
+      /* Hidden to match clean Prisma aesthetic */
+    }
+
+    .ticker-inner {
+      display: flex;
+      white-space: nowrap;
+      animation: ticker 25s linear infinite;
+    }
+
+    .ticker-text {
+      font-family: var(--font-display);
+      font-size: 15px;
+      color: var(--volt);
+      letter-spacing: .12em;
+      padding: 0 32px;
+      text-shadow: 0 0 10px var(--volt-glow);
+    }
+
+    /* —-- STAT CARDS —---------------------------------------------------- */
+    .grid {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .g4 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .g3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .g2 {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .g-auto {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    @media(max-width:1100px) {
+      .g4 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media(max-width:700px) {
+      .g4 {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .g2 {
+        grid-template-columns: 1fr;
+      }
+
+      .g3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(32px) saturate(140%);
+      -webkit-backdrop-filter: blur(32px) saturate(140%);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: var(--radius);
+      padding: 24px;
+      position: relative;
+      z-index: 10;
+      /* Above typography */
+      overflow: hidden;
+      transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+        box-shadow 0.5s ease,
+        border-color 0.5s ease,
+        background 0.5s ease;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .card:hover {
+      transform: translateY(-4px) scale(1.01);
+      background: rgba(20, 20, 20, 0.6);
+      border-color: rgba(200, 255, 0, 0.3);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(200, 255, 0, 0.05);
+    }
+
+    .card-accent::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--volt);
+      box-shadow: 0 0 15px var(--volt-glow);
+    }
+
+    .card-accent:hover::before {
+      width: 6px;
+      transition: width 0.3s ease;
+    }
+
+    .card-dark {
+      background: var(--black3);
+    }
+
+    .stat-eye {
+      font-family: var(--font-num);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--gray1);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .stat-number {
+      font-family: var(--font-display);
+      font-size: 52px;
+      letter-spacing: .02em;
+      line-height: 1;
+      transition: color .3s;
+    }
+
+    .stat-unit {
+      font-family: var(--font-num);
+      font-size: 16px;
+      color: var(--gray1);
+      margin-left: 4px;
+      font-weight: 400;
+    }
+
+    .stat-sub {
+      font-family: var(--font-num);
+      font-size: 12px;
+      color: var(--gray1);
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-delta {
+      font-family: var(--font-num);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+
+    .delta-up {
+      background: rgba(200, 255, 0, .12);
+      color: var(--volt);
+    }
+
+    .delta-dn {
+      background: rgba(255, 51, 51, .12);
+      color: var(--red);
+    }
+
+    /* —-- RING PROGRESS —------------------------------------------------- */
+    .rings-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .ring-card {
+      background: var(--black2);
+      backdrop-filter: blur(32px) saturate(140%);
+      -webkit-backdrop-filter: blur(32px) saturate(140%);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      z-index: 10;
+      /* Above typography */
+    }
+
+    .ring-card:hover {
+      border-color: rgba(204, 255, 0, 0.3);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(204, 255, 0, 0.1);
+      transform: translateY(-4px) scale(1.02);
+    }
+
+    .ring-wrap {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      margin-bottom: 16px;
+    }
+
+    .ring-svg {
+      transform: rotate(-90deg);
+    }
+
+    .ring-bg {
+      fill: none;
+      stroke: var(--black3);
+      stroke-width: 10;
+    }
+
+    .ring-fill {
+      fill: none;
+      stroke-width: 10;
+      stroke-linecap: round;
+      animation: ringFill 1.2s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    .ring-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ring-pct {
+      font-family: var(--font-display);
+      font-size: 28px;
+      letter-spacing: .02em;
+      line-height: 1;
+    }
+
+    .ring-label-top {
+      font-family: var(--font-num);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--gray1);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .ring-val {
+      font-family: var(--font-display);
+      font-size: 32px;
+      letter-spacing: .02em;
+      line-height: 1;
+    }
+
+    .ring-goal {
+      font-family: var(--font-num);
+      font-size: 12px;
+      color: var(--gray1);
+    }
+
+    @media(max-width:700px) {
+      .rings-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* —-- HERO CARD —----------------------------------------------------- */
+    .hero-card {
+      background: linear-gradient(135deg, rgba(12, 12, 12, 0.7) 0%, rgba(8, 8, 8, 0.9) 100%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius);
+      padding: 36px 40px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .hero-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url('/assets/dashboard_hero.png') center/cover no-repeat;
+      opacity: 0.4;
+      z-index: -2;
+      filter: saturate(1.2);
+    }
+
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to right, rgba(15, 15, 18, 0.95) 0%, rgba(15, 15, 18, 0.6) 50%, rgba(15, 15, 18, 0.2) 100%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .hero-card-glow {
+      position: absolute;
+      top: -60px;
+      right: -60px;
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(204, 255, 0, 0.1), transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .hero-bg-num {
+      position: absolute;
+      right: -20px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-display);
+      font-size: 200px;
+      color: rgba(255, 255, 255, .025);
+      line-height: 1;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .hero-label {
+      font-family: var(--font-num);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--volt);
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .hero-number {
+      font-family: var(--font-display);
+      font-size: clamp(72px, 10vw, 120px);
+      letter-spacing: .02em;
+      line-height: 1;
+      color: var(--white);
+    }
+
+    .hero-number span {
+      color: var(--volt);
+    }
+
+    .hero-subtitle {
+      font-family: var(--font-num);
+      font-size: 16px;
+      color: var(--gray1);
+      margin-top: 8px;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 32px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .hero-stat-val {
+      font-family: var(--font-display);
+      font-size: 28px;
+      color: var(--white);
+    }
+
+    .hero-stat-lbl {
+      font-family: var(--font-num);
+      font-size: 11px;
+      color: var(--gray1);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* —-- PROGRESS BAR —-------------------------------------------------- */
+    .prog {
+      height: 4px;
+      background: var(--black4);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+
+    .prog-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width .8s cubic-bezier(.22, 1, .36, 1);
+    }
+
+    /* —-- LOG ITEMS —----------------------------------------------------- */
+    .log-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .log-item:last-child {
+      border: none;
+    }
+
+    .log-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    .log-name {
+      font-family: var(--font-num);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .log-meta {
+      font-size: 11px;
+      color: var(--gray1);
+      margin-top: 2px;
+      font-family: var(--font-num);
+    }
+
+    .log-num {
+      font-family: var(--font-display);
+      font-size: 24px;
+      letter-spacing: .03em;
+    }
+
+    .log-unit {
+      font-family: var(--font-num);
+      font-size: 11px;
+      color: var(--gray1);
+      margin-left: 2px;
+    }
+
+    /* —-- SECTION HEADER —------------------------------------------------ */
+    .sec-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .sec-title {
+      font-family: var(--font-display);
+      font-size: 26px;
+      letter-spacing: .04em;
+    }
+
+    .btn-sm {
+      padding: 8px 24px;
+      background: var(--black3);
+      border: 1px solid var(--gray3);
+      border-radius: 40px;
+      color: var(--white);
+      font-family: var(--font-num);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .btn-sm:hover {
+      border-color: var(--volt);
+      color: var(--volt);
+    }
+
+    /* —-- FULL BUTTONS —-------------------------------------------------- */
+    .btn-full {
+      width: 100%;
+      padding: 16px;
+      border-radius: 40px;
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: .05em;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    /* —-- DAILY REMINDER BANNER —------------------------------------------ */
+    .reminder-banner {
+      background: rgba(176, 38, 255, 0.1);
+      border: 1px solid rgba(176, 38, 255, 0.2);
+      border-radius: var(--radius-sm);
+      padding: 16px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      animation: fadeIn 1s ease both;
+    }
+
+    .reminder-icon {
+      font-size: 24px;
+      filter: drop-shadow(0 0 8px var(--volt));
+    }
+
+    .reminder-text {
+      font-family: var(--font-num);
+      font-size: 14px;
+      color: var(--white);
+      letter-spacing: 0.02em;
+    }
+
+    .reminder-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--volt);
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+
+    .monthly-card {
+      background: linear-gradient(135deg, rgba(176, 38, 255, 0.05), rgba(10, 10, 10, 0.5));
+      border: 1px solid rgba(176, 38, 255, 0.15);
+    }
+
+    .btn-full:active {
+
+      transform: scale(0.96);
+    }
+
+    .btn-full-volt {
+      background: var(--volt);
+      color: var(--black);
+      box-shadow: 0 8px 24px rgba(204, 255, 0, 0.25);
+    }
+
+    .btn-full-volt:hover {
+      box-shadow: 0 12px 32px rgba(204, 255, 0, 0.4);
+      filter: brightness(1.05);
+      transform: translateY(-2px);
+    }
+
+    .btn-full-outline {
+      background: none;
+      border: 1px solid var(--gray3);
+      color: var(--white);
+    }
+
+    .btn-full-outline:hover {
+      border-color: var(--volt);
+      color: var(--volt);
+    }
+
+    /* —-- FORM FIELDS —--------------------------------------------------- */
+    .f-group {
+      margin-bottom: 16px;
+    }
+
+    .f-label {
+      display: block;
+      font-family: var(--font-num);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--gray1);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+
+    .f-input {
+      width: 100%;
+      background: var(--black3);
+      border: 1px solid var(--gray3);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      color: var(--white);
+      font-family: var(--font-num);
+      font-size: 14px;
+      outline: none;
+      transition: all .2s;
+    }
+
+    .f-input:focus {
+      border-color: rgba(204, 255, 0, 0.6);
+      box-shadow: 0 0 0 3px rgba(204, 255, 0, 0.15);
+      background: rgba(204, 255, 0, 0.03);
+    }
+
+    .f-input::placeholder {
+      color: var(--gray2);
+    }
+
+    select.f-input option {
+      background: var(--black3);
+    }
+
+    .f-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    /* —-- VIDEO BACKGROUND —---------------------------------------------- */
+    #video-bg-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -2;
+      /* Behind everything */
+      overflow: hidden;
+      background: var(--black);
+      /* Fallback */
+    }
+
+    #video-bg-container video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .spline-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+      background:
+        radial-gradient(ellipse 60% 50% at 15% 85%, rgba(204, 255, 0, 0.04), transparent),
+        radial-gradient(ellipse 50% 40% at 85% 20%, rgba(204, 255, 0, 0.03), transparent),
+        radial-gradient(ellipse at center, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.85) 70%, #000000 100%);
+      pointer-events: none;
+    }
+
+    /* —-- BADGE —--------------------------------------------------------- */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-family: var(--font-num);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .badge-volt {
+      background: rgba(200, 255, 0, .12);
+      color: var(--volt);
+    }
+
+    .badge-red {
+      background: rgba(255, 51, 51, .12);
+      color: var(--red);
+    }
+
+    .badge-blue {
+      background: rgba(51, 153, 255, .12);
+      color: var(--blue);
+    }
+
+    .badge-orange {
+      background: rgba(255, 102, 0, .12);
+      color: var(--orange);
+    }
+
+    /* —-- WORKOUT PLAN CARD —--------------------------------------------- */
+    .plan-card {
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      cursor: pointer;
+      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .plan-card:hover {
+      background: rgba(255, 255, 255, .06);
+      transform: translateY(-8px) scale(1.02);
+      border-color: var(--volt);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(200, 255, 0, 0.1);
+    }
+
+    .plan-card-name {
+      font-family: var(--font-display);
+      font-size: 28px;
+      letter-spacing: .04em;
+      margin: 8px 0 4px;
+    }
+
+    .plan-card-meta {
+      font-family: var(--font-num);
+      font-size: 12px;
+      color: var(--gray1);
+    }
+
+    .plan-card-days {
+      font-family: var(--font-display);
+      font-size: 20px;
+      color: var(--volt);
+      letter-spacing: .06em;
+      margin-top: 12px;
+    }
+
+    .exercise-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-num);
+    }
+
+    .exercise-row:last-child {
+      border: none;
+    }
+
+    .exercise-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .exercise-muscle {
+      font-size: 11px;
+      color: var(--gray1);
+      margin-top: 2px;
+    }
+
+    .exercise-sets {
+      font-family: var(--font-display);
+      font-size: 20px;
+      color: var(--volt);
+      text-align: right;
+    }
+
+    .exercise-reps {
+      font-size: 11px;
+      color: var(--gray1);
+      text-align: right;
+      margin-top: 2px;
+    }
+
+    /* —-- BMI METER —----------------------------------------------------- */
+    .bmi-track {
+      height: 10px;
+      border-radius: 5px;
+      background: linear-gradient(to right, var(--blue) 0%, var(--volt) 30%, var(--orange) 65%, var(--red) 100%);
+      position: relative;
+      margin: 14px 0;
+    }
+
+    .bmi-needle {
+      position: absolute;
+      top: -5px;
+      width: 4px;
+      height: 20px;
+      background: var(--white);
+      border-radius: 2px;
+      transform: translateX(-50%);
+      transition: left .8s cubic-bezier(.22, 1, .36, 1);
+      box-shadow: 0 0 8px rgba(255, 255, 255, .5);
+    }
+
+    .bmi-labels {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-num);
+      font-size: 10px;
+      color: var(--gray1);
+      margin-top: 4px;
+    }
+
+    /* —-- CHART —--------------------------------------------------------- */
+    .chart-wrap {
+      position: relative;
+      height: 200px;
+    }
+
+    /* —-- WATER QUICK BUTTONS —------------------------------------------- */
+    .water-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .btn-water {
+      padding: 14px 0;
+      background: var(--black3);
+      border: 1px solid var(--gray3);
+      border-radius: var(--radius-sm);
+      color: var(--white);
+      font-family: var(--font-display);
+      font-size: 18px;
+      letter-spacing: .06em;
+      cursor: pointer;
+      transition: all .2s;
+      text-align: center;
+    }
+
+    .btn-water:hover {
+      background: rgba(200, 255, 0, .08);
+      border-color: var(--volt);
+      color: var(--volt);
+    }
+
+    /* —-- STAR RATING —--------------------------------------------------- */
+    .stars {
+      display: flex;
+      gap: 6px;
+      margin: 10px 0;
+    }
+
+    .star {
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--gray3);
+      transition: color .1s;
+    }
+
+    .star.on {
+      color: var(--volt);
+    }
+
+    /* —-- TOAST —--------------------------------------------------------- */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      padding: 14px 22px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-num);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      transform: translateY(70px);
+      opacity: 0;
+      transition: all .3s cubic-bezier(.22, 1, .36, 1);
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* —-- STREAK BANNER —------------------------------------------------- */
+    .streak {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(200, 255, 0, .08);
+      border: 1px solid rgba(200, 255, 0, .2);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-family: var(--font-num);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--volt);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .streak-fire {
+      font-size: 14px;
+    }
+
+    /* —-- FOOD SEARCH —--------------------------------------------------- */
+    .food-search-wrap {
+      position: relative;
+    }
+
+    .food-suggestions {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--black3);
+      border: 1px solid var(--gray3);
+      border-radius: var(--radius-sm);
+      z-index: 50;
+      max-height: 260px;
+      overflow-y: auto;
+      display: none;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .6);
+    }
+
+    .food-suggestions.open {
+      display: block;
+    }
+
+    .food-sug-item {
+      padding: 11px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255, 255, 255, .04);
+      transition: background .15s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .food-sug-item:last-child {
+      border-bottom: none;
+    }
+
+    .food-sug-item:hover,
+    .food-sug-item.focused {
+      background: rgba(200, 255, 0, .07);
+    }
+
+    .sug-name {
+      font-family: var(--font-num);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--white);
+    }
+
+    .sug-meta {
+      font-family: var(--font-num);
+      font-size: 11px;
+      color: var(--gray1);
+      white-space: nowrap;
+    }
+
+    .sug-cal {
+      font-family: var(--font-display);
+      font-size: 18px;
+      color: var(--volt);
+      white-space: nowrap;
+    }
+
+    .food-sug-loading {
+      padding: 14px;
+      text-align: center;
+      font-family: var(--font-num);
+      font-size: 12px;
+      color: var(--gray1);
+      letter-spacing: .06em;
+    }
+
+    /* Nutrition preview card */
+    .nutr-preview {
+      background: var(--black3);
+      border: 1px solid rgba(200, 255, 0, .2);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .nutr-preview.visible {
+      display: block;
+      animation: fadeUp .3s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    .nutr-preview-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .nutr-food-name {
+      font-family: var(--font-display);
+      font-size: 22px;
+      letter-spacing: .04em;
+      color: var(--white);
+      line-height: 1.1;
+    }
+
+    .nutr-food-brand {
+      font-family: var(--font-num);
+      font-size: 11px;
+      color: var(--gray1);
+      margin-top: 3px;
+    }
+
+    .nutr-cal-big {
+      font-family: var(--font-display);
+      font-size: 42px;
+      color: var(--volt);
+      letter-spacing: .02em;
+      line-height: 1;
+      text-align: right;
+    }
+
+    .nutr-cal-lbl {
+      font-family: var(--font-num);
+      font-size: 10px;
+      color: var(--gray1);
+      letter-spacing: .1em;
+      text-align: right;
+      margin-top: 2px;
+    }
+
+    .nutr-macros {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .nutr-macro {
+      background: var(--black4, #1e1e1e);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+
+    .nutr-macro-val {
+      font-family: var(--font-display);
+      font-size: 22px;
+      letter-spacing: .03em;
+    }
+
+    .nutr-macro-lbl {
+      font-family: var(--font-num);
+      font-size: 10px;
+      color: var(--gray1);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* —-- AI COACH —------------------------------------------------------ */
+    .ai-viewport {
+      position: relative;
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      border: 1px solid var(--border);
+    }
+
+    #ai-video {
+      visibility: hidden;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+    }
+
+    #ai-canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .ai-hud {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .ai-stat-box {
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid var(--border);
+      padding: 12px 20px;
+      border-radius: 12px;
+      text-align: right;
+      min-width: 140px;
+      backdrop-filter: blur(10px);
+    }
+
+    .ai-stat-label {
+      font-family: var(--font-num);
+      font-size: 11px;
+      color: var(--gray1);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .ai-stat-val {
+      font-family: var(--font-display);
+      font-size: 42px;
+      color: var(--volt);
+      line-height: 1;
+    }
+
+    .ai-feedback {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--volt);
+      color: #000;
+      padding: 12px 28px;
+      border-radius: 40px;
+      font-family: var(--font-display);
+      font-size: 24px;
+      letter-spacing: 0.05em;
+      box-shadow: 0 8px 32px var(--volt-glow);
+      display: none;
+      animation: pulseVolt 1s infinite;
+    }
+
+    .ai-controls {
+      display: flex;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    /* —-- FASTING TRACKER —---------------------------------------------- */
+    .fast-timer-wrap {
+      position: relative;
+      width: 260px;
+      height: 260px;
+      margin: 0 auto 24px;
+    }
+
+    .fast-ring-svg {
+      transform: rotate(-90deg);
+      filter: drop-shadow(0 0 20px rgba(204, 255, 0, 0.15));
+    }
+
+    .fast-ring-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.06);
+      stroke-width: 12;
+    }
+
+    .fast-ring-fill {
+      fill: none;
+      stroke-width: 12;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s cubic-bezier(.22, 1, .36, 1);
+      filter: drop-shadow(0 0 8px rgba(204, 255, 0, 0.4));
+    }
+
+    .fast-ring-glow {
+      fill: none;
+      stroke-width: 18;
+      stroke-linecap: round;
+      opacity: 0.15;
+      transition: stroke-dashoffset 1s cubic-bezier(.22, 1, .36, 1);
+    }
+
+    .fast-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .fast-time {
+      font-family: var(--font-display);
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      color: var(--white);
+    }
+
+    .fast-time-label {
+      font-family: var(--font-num);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gray1);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    .fast-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 18px;
+      border-radius: 40px;
+      font-family: var(--font-num);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .fast-status-pill.fasting {
+      background: rgba(204, 255, 0, 0.12);
+      color: var(--volt);
+      box-shadow: 0 0 20px rgba(204, 255, 0, 0.1);
+    }
+
+    .fast-status-pill.eating {
+      background: rgba(0, 229, 255, 0.12);
+      color: var(--blue);
+    }
+
+    .fast-status-pill.idle {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--gray1);
+    }
+
+    @keyframes fastPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.03); opacity: 0.9; }
+    }
+
+    .fast-timer-wrap.active {
+      animation: fastPulse 3s ease-in-out infinite;
+    }
+
+    .fast-protocol-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .fast-protocol-btn {
+      padding: 14px 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      color: var(--gray1);
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .fast-protocol-btn:hover {
+      background: rgba(204, 255, 0, 0.06);
+      border-color: rgba(204, 255, 0, 0.3);
+      color: var(--volt);
+    }
+
+    .fast-protocol-btn.selected {
+      background: rgba(204, 255, 0, 0.1);
+      border-color: var(--volt);
+      color: var(--volt);
+      box-shadow: 0 0 20px rgba(204, 255, 0, 0.1);
+    }
+
+    .fast-protocol-btn span {
+      display: block;
+      font-family: var(--font-num);
+      font-size: 10px;
+      color: var(--gray1);
+      margin-top: 4px;
+      letter-spacing: 0.06em;
+    }
+
+    .fast-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .fast-info-box {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .fast-info-val {
+      font-family: var(--font-display);
+      font-size: 28px;
+      letter-spacing: 0.02em;
+      line-height: 1;
+    }
+
+    .fast-info-lbl {
+      font-family: var(--font-num);
+      font-size: 10px;
+      color: var(--gray1);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    /* —-- GAMIFICATION —------------------------------------------------- */
+    .gami-hero {
+      background: linear-gradient(135deg, rgba(12, 12, 12, 0.8), rgba(25, 18, 5, 0.9));
+      border: 1px solid rgba(255, 170, 0, 0.15);
+      border-radius: var(--radius);
+      padding: 40px;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+      text-align: center;
+    }
+
+    .gami-hero::before {
+      content: '';
+      position: absolute;
+      top: -80px;
+      right: -80px;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(255, 170, 0, 0.08), transparent 70%);
+      pointer-events: none;
+    }
+
+    .gami-hero::after {
+      content: '';
+      position: absolute;
+      bottom: -60px;
+      left: -60px;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(204, 255, 0, 0.05), transparent 70%);
+      pointer-events: none;
+    }
+
+    .gami-avatar {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(255, 170, 0, 0.2), rgba(204, 255, 0, 0.2));
+      border: 3px solid rgba(255, 170, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      margin: 0 auto 16px;
+      box-shadow: 0 0 30px rgba(255, 170, 0, 0.15);
+    }
+
+    .gami-title {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #ffaa00;
+      margin-bottom: 4px;
+    }
+
+    .gami-level {
+      font-family: var(--font-display);
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      background: linear-gradient(135deg, #ffaa00 20%, #ffdd00 80%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+    }
+
+    .gami-level-name {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: 0.08em;
+      margin-top: 4px;
+    }
+
+    .gami-xp-bar-wrap {
+      margin-top: 24px;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .gami-xp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .gami-xp-label {
+      font-family: var(--font-num);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gray1);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .gami-xp-val {
+      font-family: var(--font-display);
+      font-size: 16px;
+      color: #ffaa00;
+      letter-spacing: 0.04em;
+    }
+
+    .gami-xp-bar {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .gami-xp-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #ffaa00, #ffdd00);
+      box-shadow: 0 0 12px rgba(255, 170, 0, 0.4);
+      transition: width 1s cubic-bezier(.22, 1, .36, 1);
+    }
+
+    .gami-tier-track {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 24px;
+      padding: 0 10px;
+      position: relative;
+    }
+
+    .gami-tier-track::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 40px;
+      right: 40px;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateY(-50%);
+      z-index: 0;
+    }
+
+    .gami-tier {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      z-index: 1;
+    }
+
+    .gami-tier-dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all 0.5s ease;
+    }
+
+    .gami-tier-dot.reached {
+      background: rgba(255, 170, 0, 0.2);
+      border-color: #ffaa00;
+      box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
+    }
+
+    .gami-tier-dot.current {
+      background: rgba(255, 170, 0, 0.3);
+      border-color: #ffdd00;
+      box-shadow: 0 0 25px rgba(255, 170, 0, 0.5);
+      transform: scale(1.15);
+    }
+
+    .gami-tier-lbl {
+      font-family: var(--font-num);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--gray1);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .gami-tier-lbl.active {
+      color: #ffaa00;
+    }
+
+    .gami-badges-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px;
+    }
+
+    .gami-badge-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 18px;
+      padding: 24px 16px;
+      text-align: center;
+      transition: all 0.4s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .gami-badge-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 170, 0, 0.3);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 15px rgba(255, 170, 0, 0.1);
+    }
+
+    .gami-badge-card.unlocked {
+      border-color: rgba(255, 170, 0, 0.25);
+      background: rgba(255, 170, 0, 0.04);
+    }
+
+    .gami-badge-card.locked {
+      opacity: 0.45;
+      filter: grayscale(0.8);
+    }
+
+    .gami-badge-icon {
+      font-size: 40px;
+      margin-bottom: 10px;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+    }
+
+    .gami-badge-name {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--white);
+      margin-bottom: 4px;
+    }
+
+    .gami-badge-desc {
+      font-family: var(--font-num);
+      font-size: 10px;
+      color: var(--gray1);
+      letter-spacing: 0.04em;
+      line-height: 1.4;
+    }
+
+    .gami-badge-date {
+      font-family: var(--font-num);
+      font-size: 9px;
+      color: #ffaa00;
+      letter-spacing: 0.08em;
+      margin-top: 8px;
+      text-transform: uppercase;
+    }
+
+    .gami-stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .gami-stat-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 18px;
+      padding: 20px;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .gami-stat-card:hover {
+      border-color: rgba(255, 170, 0, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .gami-stat-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .gami-stat-val {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1;
+    }
+
+    .gami-stat-lbl {
+      font-family: var(--font-num);
+      font-size: 10px;
+      color: var(--gray1);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    @keyframes badgeUnlock {
+      0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+      50% { transform: scale(1.15) rotate(3deg); }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .gami-badge-card.unlocked .gami-badge-icon {
+      animation: badgeUnlock 0.6s cubic-bezier(.22, 1, .36, 1) both;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ULTRA HIGH-RES VIDEO BACKGROUND (DUAL LAYER) -->
+  <div id="video-bg-container">
+    <video id="bg-video-1" class="bg-video active" autoplay loop muted playsinline>
+      <source src="/fitness_background.mp4?v=3" type="video/mp4">
+    </video>
+    <video id="bg-video-2" class="bg-video active" autoplay loop muted playsinline>
+      <source src="/fitness_background.mp4?v=3" type="video/mp4">
+    </video>
+  </div>
+  <div class="spline-overlay"></div>
+
+  <div id="auth-screen">
+    <!-- Left Column (Run) -->
+    <div class="auth-side-left"></div>
+
+    <!-- Center Column -->
+    <div class="auth-center">
+
+      <!-- Main Strava Layout -->
+      <div id="auth-main-view">
+        <h1>COMMUNITY-POWERED<br>MOTIVATION</h1>
+        <div class="subtext">Track your progress and cheer each other on.<br>Join the fitness journey today.</div>
+
+        <div class="auth-toggle-text">Already a Member? <span
+            onclick="document.getElementById('auth-main-view').style.display='none'; authTab('login');">Log In</span>
+        </div>
+
+        <div class="auth-buttons">
+          <button class="btn-strava btn-google">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                fill="#4285F4" />
+              <path
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                fill="#34A853" />
+              <path
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                fill="#FBBC05" />
+              <path
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                fill="#EA4335" />
+            </svg>
+            Sign Up With Google
+          </button>
+          <button class="btn-strava btn-apple">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#000">
+              <path
+                d="M17.05 20.28c-.98.95-2.05 1.8-3.08 1.8-1.09 0-1.44-.65-2.67-.65-1.2 0-1.6.65-2.65.65-1.09 0-2.14-.88-3.12-1.85-3.41-3.23-4.33-8.23-2.45-10.74 1.1-1.46 2.76-2.4 4.54-2.4 1.07 0 2.06.39 3.03.95.69.39 1.34.62 1.95.62s1.2-.23 1.85-.62c.98-.55 1.98-.95 3.1-.95 1.63 0 3.14.78 4.23 2.05-3.6 1.77-3 6.64.44 8.23-.74 1.46-1.6 2.72-2.34 3.65zM15.13 4.21c-.69.83-1.67 1.39-2.73 1.39-.14 0-.28-.01-.42-.03.11-1.09.61-2.12 1.39-2.91C14.07 1.92 15.08 1.4 16.1 1.4c.15 0 .31.02.45.03-.13 1.12-.66 2.15-1.42 2.78z" />
+            </svg>
+            Sign Up With Apple
+          </button>
+          <button class="btn-strava btn-email"
+            onclick="document.getElementById('auth-main-view').style.display='none'; authTab('register');">
+            Sign Up With Email
+          </button>
+        </div>
+      </div>
+
+      <!-- Login Form View -->
+      <div id="form-login" class="auth-form-container" style="display:none">
+        <button class="btn-back"
+          onclick="document.getElementById('auth-main-view').style.display='block'; authTab('none');">&larr;
+          Back</button>
+        <div class="auth-form-title">WELCOME<br>BACK.</div>
+        <div class="auth-form-sub">ENTER YOUR CREDENTIALS TO CONTINUE</div>
+        <div class="auth-err" id="login-err" style="color:red;font-size:13px;margin-bottom:10px;display:none;"></div>
+        <div class="field"><label class="field-label">Email address</label><input class="field-input" id="l-email"
+            type="email" placeholder="you@email.com"></div>
+        <div class="field"><label class="field-label">Password</label><input class="field-input" id="l-pass"
+            type="password" placeholder="••••••••"></div>
+        <button class="btn-strava btn-email" style="margin-top:20px" onclick="doLogin()">LOG IN</button>
+      </div>
+
+      <!-- Register Form View -->
+      <div id="form-register" class="auth-form-container" style="display:none">
+        <button class="btn-back"
+          onclick="document.getElementById('auth-main-view').style.display='block'; authTab('none');">&larr;
+          Back</button>
+        <div class="auth-form-title">JOIN<br>TODAY.</div>
+        <div class="auth-form-sub">START YOUR FITNESS JOURNEY NOW</div>
+        <div class="auth-err" id="reg-err" style="color:red;font-size:13px;margin-bottom:10px;display:none;"></div>
+        <div class="field"><label class="field-label">Full name</label><input class="field-input" id="r-name"
+            placeholder="Your name"></div>
+        <div class="field"><label class="field-label">Email address</label><input class="field-input" id="r-email"
+            type="email" placeholder="you@email.com"></div>
+        <div class="field"><label class="field-label">Password (min 6 chars)</label><input class="field-input"
+            id="r-pass" type="password" placeholder="••••••••"></div>
+        <button class="btn-strava btn-email" style="margin-top:20px" onclick="doRegister()">CREATE ACCOUNT</button>
+      </div>
+
+    </div>
+
+    <!-- Right Column (Hike) -->
+    <div class="auth-side-right"></div>
+  </div>
+
+  <div id="app-screen" style="display: none">
+    <div class="app-layout">
+
+      <nav class="sidebar" id="sidebar">
+        <div class="sb-top">
+          <div class="sb-logo">
+            <div class="sb-logo-dot"></div>GFF
+          </div>
+          <button class="hamburger-btn" onclick="toggleMenu()">
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- FULLSCREEN MENU OVERLAY -->
+      <div class="menu-overlay" id="menu-overlay">
+        <div class="menu-glow-1"></div>
+        <div class="menu-glow-2"></div>
+
+        <div class="menu-grid">
+          <div class="menu-card bento-2x2" onclick="menuNav('aicoach')">
+            <img src="/images/ai-coach.jpeg" class="menu-card-bg" onerror="this.style.display='none'">
+            <div class="menu-card-overlay"></div>
+            <div class="menu-card-content">
+              <div style="margin-bottom: auto;">
+                <div class="menu-card-icon" style="font-size: 32px;">🤖</div>
+              </div>
+              <div>
+                <div class="menu-card-title">AI COACH</div>
+                <div class="menu-card-subtitle">Your personal fitness assistant</div>
+              </div>
+              <div class="menu-card-arrow">&rarr;</div>
+            </div>
+          </div>
+          
+          <div class="menu-card bento-1x2" onclick="menuNav('workout')">
+            <img src="/images/workout.jpeg" class="menu-card-bg" onerror="this.style.display='none'">
+            <div class="menu-card-overlay"></div>
+            <div class="menu-card-content">
+              <div class="menu-card-icon">🏋️</div>
+              <div class="menu-card-title">WORKOUTS</div>
+              <div class="menu-card-arrow">&rarr;</div>
+            </div>
+          </div>
+
+          <div class="menu-card bento-2x1" onclick="menuNav('food')">
+            <img src="/images/nutrition.png" class="menu-card-bg" onerror="this.style.display='none'">
+            <div class="menu-card-overlay"></div>
+            <div class="menu-card-content">
+              <div class="menu-card-icon">🥗</div>
+              <div class="menu-card-title">NUTRITION</div>
+              <div class="menu-card-arrow">&rarr;</div>
+            </div>
+          </div>
+
+          <div class="menu-card bento-1x1" onclick="menuNav('dashboard')">
+            <img src="/images/track.jpeg" class="menu-card-bg" onerror="this.style.display='none'">
+            <div class="menu-card-overlay"></div>
+            <div class="menu-card-content">
+              <div class="menu-card-icon">🏠</div>
+              <div class="menu-card-title">DASHBOARD</div>
+              <div class="menu-card-arrow">&rarr;</div>
+            </div>
+          </div>
+
+          <div class="menu-card bento-2x1" onclick="menuNav('sleep')">
+            <img src="/images/sleep.jpeg" class="menu-card-bg" onerror="this.style.display='none'">
+            <div class="menu-card-overlay"></div>
+            <div class="menu-card-content">
+              <div class="menu-card-icon">💤</div>
+              <div class="menu-card-title">SLEEP TRACKER</div>
+              <div class="menu-card-arrow">&rarr;</div>
+            </div>
+          </div>
+
+          <div class="menu-card bento-1x1" onclick="menuNav('heartrate')">
+            <img src="/images/heart.jpg" class="menu-card-bg" onerror="this.style.display='none'">
+            <div class="menu-card-overlay"></div>
+            <div class="menu-card-content">
+              <div class="menu-card-icon">❤️</div>
+              <div class="menu-card-title">HEART RATE</div>
+              <div class="menu-card-arrow">&rarr;</div>
+            </div>
+          </div>
+
+          <div class="menu-card bento-2x1" onclick="menuNav('measurements')">
+            <img src="/images/body-stats.jpeg" class="menu-card-bg" onerror="this.style.display='none'">
+            <div class="menu-card-overlay"></div>
+            <div class="menu-card-content">
+              <div class="menu-card-icon">📊</div>
+              <div class="menu-card-title">BODY STATS</div>
+              <div class="menu-card-arrow">&rarr;</div>
+            </div>
+          </div>
+
+          <div class="menu-card bento-1x1" onclick="menuNav('water')">
+            <img src="/images/hydration.jpeg" class="menu-card-bg" onerror="this.style.display='none'">
+            <div class="menu-card-overlay"></div>
+            <div class="menu-card-content">
+              <div class="menu-card-icon">💧</div>
+              <div class="menu-card-title">HYDRATION</div>
+              <div class="menu-card-arrow">&rarr;</div>
+            </div>
+          </div>
+
+          <div class="menu-card bento-2x1" onclick="menuNav('gamification')">
+            <img src="/images/track.jpeg" class="menu-card-bg" onerror="this.style.display='none'">
+            <div class="menu-card-overlay"></div>
+            <div class="menu-card-content">
+              <div class="menu-card-icon">🏆</div>
+              <div class="menu-card-title">ACHIEVEMENTS</div>
+              <div class="menu-card-arrow">&rarr;</div>
+            </div>
+          </div>
+
+          <div class="menu-card bento-1x1" onclick="menuNav('fasting')">
+            <img src="/images/nutrition.png" class="menu-card-bg" onerror="this.style.display='none'">
+            <div class="menu-card-overlay"></div>
+            <div class="menu-card-content">
+              <div class="menu-card-icon">⏱️</div>
+              <div class="menu-card-title">FASTING</div>
+              <div class="menu-card-arrow">&rarr;</div>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="logout()"
+          style="margin-top: 50px; background: none; border: none; color: var(--red); font-family: var(--font-num); font-weight: 700; cursor: pointer; opacity: 0.6; transition: opacity 0.3s;">
+          &larr; LOGOUT FROM GFF
+        </button>
+      </div>
+
+      <div class="content">
+
+        <div class="page active" id="page-dashboard">
+
+          <!-- NEW HERO LANDING -->
+          <div class="hero-landing">
+            <div class="hero-text-layer">
+              <div class="hero-word word-track" id="h-track">track</div>
+              <div class="hero-word word-your" id="h-your">your</div>
+              <div class="hero-word word-activity" id="h-activity">activity</div>
+            </div>
+
+            <div class="hero-side-card" onclick="window.open('https://www.google.com/maps/dir/', '_blank')">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div class="hero-side-label" style="margin-bottom:0">You run today</div>
+                <div class="hero-route-link">View Route &rarr;</div>
+              </div>
+              <div class="hero-side-val" id="h-dist">0.00 KM</div>
+              <div class="hero-side-map">
+                <svg viewBox="0 0 100 60">
+                  <path id="map-path" d="M10,50 Q25,10 40,30 T70,20 T90,40" stroke-dasharray="200"
+                    stroke-dashoffset="200" />
+                  <circle cx="10" cy="50" r="2" fill="var(--volt)" />
+                  <circle id="map-cursor" cx="10" cy="50" r="3" fill="var(--white)" />
+                </svg>
+                <style>
+                  #map-path {
+                    stroke: var(--volt);
+                    stroke-width: 2;
+                    fill: none;
+                    transition: stroke-dashoffset 3s ease-out;
+                  }
+
+                  #map-cursor {
+                    transition: all 3s ease-out;
+                  }
+                </style>
+                <div
+                  style="position:absolute; font-family:var(--font-num); font-size:9px; color:var(--gray1); bottom:10px">
+                  SILICON VALLEY ROUTE</div>
+              </div>
+              <div
+                style="display:flex; justify-content:space-between; margin-top:20px; font-family:var(--font-num); font-size:10px; color:var(--gray1)">
+                <div>PACE<br><span style="color:var(--white); font-weight:700">3:23 /KM</span></div>
+                <div>TIME<br><span style="color:var(--white); font-weight:700">43:22</span></div>
+                <div>ENERGY<br><span style="color:var(--white); font-weight:700">135KCAL</span></div>
+              </div>
+            </div>
+
+            <div class="hero-scroll-hint">Scroll to explore</div>
+          </div>
+
+          <div class="ticker-wrap">
+            <div class="ticker-inner" id="ticker">
+              <span class="ticker-text">TRAIN HARDER</span><span class="ticker-text">EAT SMARTER</span>
+              <span class="ticker-text">SLEEP BETTER</span><span class="ticker-text">LIVE STRONGER</span>
+              <span class="ticker-text">NO DAYS OFF</span><span class="ticker-text">PUSH YOUR LIMITS</span>
+              <span class="ticker-text">TRAIN HARDER</span><span class="ticker-text">EAT SMARTER</span>
+              <span class="ticker-text">SLEEP BETTER</span><span class="ticker-text">LIVE STRONGER</span>
+            </div>
+          </div>
+
+          <div class="page-header anim-fade-up" style="padding-top: 100px">
+            <div>
+              <div class="page-eyebrow" id="d-greeting-small">GOOD MORNING</div>
+              <div class="page-title" id="d-name-title">ATHLETE</div>
+              <div style="margin-top:10px">
+                <div class="streak"><span class="streak-fire">🔥</span><span id="d-streak">TODAY IS YOUR DAY</span>
+                </div>
+              </div>
+            </div>
+            <div class="page-date" id="d-date"></div>
+          </div>
+
+          <div class="hero-card anim-fade-up" style="animation-delay:.05s">
+            <div class="hero-card-glow"></div>
+            <div class="hero-bg-num" id="d-hero-bg">0</div>
+            <div class="hero-label">NET CALORIES TODAY</div>
+            <div class="hero-number"><span id="d-hero-net">0</span> <small
+                style="font-size:40%;color:var(--gray1)">KCAL</small></div>
+            <div class="hero-subtitle" id="d-hero-sub">Loading your data…</div>
+            <div class="hero-stats">
+              <div>
+                <div class="hero-stat-val c-volt" id="d-hero-in">0</div>
+                <div class="hero-stat-lbl">Consumed</div>
+              </div>
+              <div>
+                <div class="hero-stat-val" style="color:var(--red)" id="d-hero-out">0</div>
+                <div class="hero-stat-lbl">Burned</div>
+              </div>
+              <div>
+                <div class="hero-stat-val" style="color:var(--gray1)" id="d-hero-bmr">0</div>
+                <div class="hero-stat-lbl">BMR / day</div>
+              </div>
+              <div>
+                <div class="hero-stat-val" style="color:var(--blue)" id="d-hero-dist">0 km</div>
+                <div class="hero-stat-lbl">Distance</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rings-row anim-fade-up" style="animation-delay:.1s">
+            <div class="ring-card">
+              <div class="ring-label-top">Calories</div>
+              <div class="ring-wrap">
+                <svg class="ring-svg" width="120" height="120" viewBox="0 0 140 140">
+                  <circle class="ring-bg" cx="70" cy="70" r="60" />
+                  <circle class="ring-fill" id="ring-cal" cx="70" cy="70" r="60" stroke="var(--volt)"
+                    style="--target:0;stroke-dasharray:377;stroke-dashoffset:377" />
+                </svg>
+                <div class="ring-center">
+                  <div class="ring-pct" id="rpct-cal" style="color:var(--volt)">0%</div>
+                </div>
+              </div>
+              <div class="ring-val" id="rval-cal">0</div>
+              <div class="ring-goal" id="rgoal-cal">of 2000 kcal</div>
+            </div>
+            <div class="ring-card">
+              <div class="ring-label-top">Steps</div>
+              <div class="ring-wrap">
+                <svg class="ring-svg" width="120" height="120" viewBox="0 0 140 140">
+                  <circle class="ring-bg" cx="70" cy="70" r="60" />
+                  <circle class="ring-fill" id="ring-step" cx="70" cy="70" r="60" stroke="var(--blue)"
+                    style="--target:0;stroke-dasharray:377;stroke-dashoffset:377" />
+                </svg>
+                <div class="ring-center">
+                  <div class="ring-pct" id="rpct-step" style="color:var(--blue)">0%</div>
+                </div>
+              </div>
+              <div class="ring-val" id="rval-step">0</div>
+              <div class="ring-goal" id="rgoal-step">of 8000 steps</div>
+            </div>
+            <div class="ring-card">
+              <div class="ring-label-top">Hydration</div>
+              <div class="ring-wrap">
+                <svg class="ring-svg" width="120" height="120" viewBox="0 0 140 140">
+                  <circle class="ring-bg" cx="70" cy="70" r="60" />
+                  <circle class="ring-fill" id="ring-water" cx="70" cy="70" r="60" stroke="#26c6da"
+                    style="--target:0;stroke-dasharray:377;stroke-dashoffset:377" />
+                </svg>
+                <div class="ring-center">
+                  <div class="ring-pct" id="rpct-water" style="color:#26c6da">0%</div>
+                </div>
+              </div>
+              <div class="ring-val" id="rval-water">0 L</div>
+              <div class="ring-goal" id="rgoal-water">of 2.0 L</div>
+            </div>
+          </div>
+
+          <div class="grid g4 anim-fade-up" style="animation-delay:.15s">
+            <div class="card card-accent">
+              <div class="stat-eye">Steps <span class="badge badge-volt" id="d-step-badge">0%</span></div>
+              <div class="stat-number" style="color:var(--blue)" id="d-steps">0</div>
+              <div class="stat-sub" id="d-step-goal-sub">Goal: 8,000</div>
+              <div class="prog">
+                <div class="prog-fill" id="d-step-bar" style="background:var(--blue);width:0%"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="stat-eye">Calories burned</div>
+              <div class="stat-number" style="color:var(--red)" id="d-cal-out">0</div>
+              <div class="stat-sub">active calories</div>
+            </div>
+            <div class="card">
+              <div class="stat-eye">Sleep <span class="badge badge-blue" id="d-sleep-badge">—</span></div>
+              <div class="stat-number" style="color:#b388ff" id="d-sleep">--</div>
+              <div class="stat-sub" id="d-sleep-sub">quality —/5</div>
+            </div>
+            <div class="card">
+              <div class="stat-eye">Heart rate</div>
+              <div class="stat-number" style="color:var(--red)" id="d-hr">--</div>
+              <div class="stat-sub">resting bpm</div>
+            </div>
+          </div>
+
+          <div class="grid g2 anim-fade-up" style="animation-delay:.2s">
+            <div class="card">
+              <div class="sec-head">
+                <div class="sec-title">NUTRITION</div><button class="btn-sm" onclick="nav('food')">+ ADD</button>
+              </div>
+              <div id="d-food-list">
+                <div style="font-family:var(--font-num);font-size:13px;color:var(--gray1)">No meals logged today</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="sec-head">
+                <div class="sec-title">ACTIVITY</div><button class="btn-sm" onclick="nav('activity')">+ ADD</button>
+              </div>
+              <div id="d-act-list">
+                <div style="font-family:var(--font-num);font-size:13px;color:var(--gray1)">No activities logged today
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-aicoach">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">AI & ADVANCED TECH</div>
+              <div class="page-title">REAL-TIME COACH</div>
+            </div>
+          </div>
+
+          <div class="grid g2">
+            <div class="ai-viewport">
+              <video id="ai-video" playsinline></video>
+              <canvas id="ai-canvas"></canvas>
+              <div class="ai-hud">
+                <div class="ai-stat-box">
+                  <div class="ai-stat-label">Reps</div>
+                  <div class="ai-stat-val" id="ai-reps">0</div>
+                </div>
+                <div class="ai-stat-box">
+                  <div class="ai-stat-label">Progress</div>
+                  <div class="ai-stat-val" id="ai-prog" style="color:var(--white)">0%</div>
+                </div>
+              </div>
+              <div class="ai-feedback" id="ai-feedback">GO LOWER!</div>
+            </div>
+
+            <div class="card">
+              <div class="sec-title" style="margin-bottom:20px">SESSION CONFIG</div>
+              <div class="f-group">
+                <label class="f-label">Exercise Type</label>
+                <select class="f-input" id="ai-type">
+                  <option value="SQUATS">Squats</option>
+                  <option value="PUSHUPS">Pushups</option>
+                </select>
+              </div>
+              <div class="ai-controls">
+                <button class="btn-full btn-full-volt" id="btn-start-ai" onclick="startAICoach()">START AI
+                  COACH</button>
+                <button class="btn-full btn-full-outline" id="btn-stop-ai" onclick="stopAICoach()"
+                  style="display:none">STOP & SAVE</button>
+              </div>
+              <div style="margin-top:32px; padding-top:24px; border-top:1px solid var(--border)">
+                <div class="sec-title" style="font-size:18px; margin-bottom:12px">HOW IT WORKS</div>
+                <p style="font-family:var(--font-num); color:var(--gray1); font-size:13px; line-height:1.6">
+                  Our proprietary AI uses your webcam to track 33 key body points. It automatically detects movement
+                  patterns and counts reps only when full range of motion is achieved.
+                  <br><br>
+                  <b style="color:var(--volt)">💡 PRIVACY:</b> All AI processing happens locally on your device. Video
+                  is never sent to our servers.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-food">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">DAILY NUTRITION</div>
+              <div class="page-title">FOOD LOG</div>
+            </div>
+          </div>
+          <div class="grid g2">
+            <div class="card">
+              <div class="sec-title" style="margin-bottom:4px">LOG A MEAL</div>
+              <div
+                style="font-family:var(--font-num);font-size:11px;color:var(--gray1);margin-bottom:18px;letter-spacing:.04em">
+                Type a food below — macros fill automatically ✨</div>
+
+              <!-- Smart food search -->
+              <div class="f-group food-search-wrap">
+                <label class="f-label">Search food <span style="color:var(--volt);font-weight:700">✨
+                    Auto-fill</span></label>
+                <div style="position:relative">
+                  <input class="f-input" id="f-name" placeholder="e.g. chicken breast, banana, oats…" autocomplete="off"
+                    oninput="handleFoodSearch(this.value)" onkeydown="handleFoodKey(event)">
+                  <div id="food-suggestions" class="food-suggestions"></div>
+                </div>
+                <div id="food-search-status"
+                  style="font-family:var(--font-num);font-size:11px;color:var(--gray1);margin-top:5px;min-height:15px">
+                </div>
+              </div>
+
+              <!-- Serving size + meal type -->
+              <div class="f-row">
+                <div class="f-group">
+                  <label class="f-label">Serving size (g)</label>
+                  <input class="f-input" id="f-serving" type="number" value="100" min="1" placeholder="100"
+                    oninput="recalcFromServing()">
+                </div>
+                <div class="f-group">
+                  <label class="f-label">Meal type</label>
+                  <select class="f-input" id="f-meal">
+                    <option value="breakfast">Breakfast</option>
+                    <option value="lunch">Lunch</option>
+                    <option value="dinner">Dinner</option>
+                    <option value="snack">Snack</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Nutrition preview (shown after food selected) -->
+              <div class="nutr-preview" id="nutr-preview">
+                <div class="nutr-preview-head">
+                  <div>
+                    <div class="nutr-food-name" id="np-name">—</div>
+                    <div class="nutr-food-brand" id="np-brand"></div>
+                  </div>
+                  <div>
+                    <div class="nutr-cal-big" id="np-cal">0</div>
+                    <div class="nutr-cal-lbl">KCAL</div>
+                  </div>
+                </div>
+                <div class="nutr-macros">
+                  <div class="nutr-macro">
+                    <div class="nutr-macro-val" style="color:var(--blue)" id="np-prot">0g</div>
+                    <div class="nutr-macro-lbl">Protein</div>
+                  </div>
+                  <div class="nutr-macro">
+                    <div class="nutr-macro-val" style="color:var(--orange)" id="np-carb">0g</div>
+                    <div class="nutr-macro-lbl">Carbs</div>
+                  </div>
+                  <div class="nutr-macro">
+                    <div class="nutr-macro-val" style="color:var(--red)" id="np-fat">0g</div>
+                    <div class="nutr-macro-lbl">Fat</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hidden fields holding actual values sent to backend -->
+              <input type="hidden" id="f-cal">
+              <input type="hidden" id="f-prot">
+              <input type="hidden" id="f-carb">
+              <input type="hidden" id="f-fat">
+
+              <!-- Manual override (collapsible) -->
+              <details style="margin-bottom:16px">
+                <summary
+                  style="font-family:var(--font-num);font-size:11px;color:var(--gray1);letter-spacing:.08em;cursor:pointer;padding:8px 0">
+                  📝 ENTER MANUALLY / OVERRIDE</summary>
+                <div style="margin-top:10px">
+                  <div class="f-row">
+                    <div class="f-group"><label class="f-label">Calories (kcal)</label><input class="f-input"
+                        id="f-cal-manual" type="number" placeholder="0" oninput="syncManual()"></div>
+                    <div class="f-group"><label class="f-label">Protein (g)</label><input class="f-input"
+                        id="f-prot-manual" type="number" placeholder="0" oninput="syncManual()"></div>
+                  </div>
+                  <div class="f-row">
+                    <div class="f-group"><label class="f-label">Carbs (g)</label><input class="f-input"
+                        id="f-carb-manual" type="number" placeholder="0" oninput="syncManual()"></div>
+                    <div class="f-group"><label class="f-label">Fat (g)</label><input class="f-input" id="f-fat-manual"
+                        type="number" placeholder="0" oninput="syncManual()"></div>
+                  </div>
+                </div>
+              </details>
+
+              <button class="btn-full btn-full-volt" onclick="logFood()">SAVE MEAL</button>
+            </div>
+            <div>
+              <div class="grid g3" style="margin-bottom:16px">
+                <div class="card card-dark" style="text-align:center">
+                  <div class="stat-eye" style="justify-content:center">Total</div>
+                  <div class="stat-number" style="color:var(--volt);font-size:36px" id="f-total-cal">0</div>
+                </div>
+                <div class="card card-dark" style="text-align:center">
+                  <div class="stat-eye" style="justify-content:center">Protein</div>
+                  <div class="stat-number" style="color:var(--blue);font-size:36px" id="f-total-prot">0<span
+                      class="stat-unit">g</span></div>
+                </div>
+                <div class="card card-dark" style="text-align:center">
+                  <div class="stat-eye" style="justify-content:center">Carbs</div>
+                  <div class="stat-number" style="color:var(--orange);font-size:36px" id="f-total-carb">0<span
+                      class="stat-unit">g</span></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="sec-head">
+                  <div class="sec-title">TODAY'S FOOD</div>
+                </div>
+                <div id="f-list">
+                  <div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No meals yet</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-activity">
+          <div class="page-header" style="margin-bottom: 30px;">
+            <div>
+              <div class="page-eyebrow" id="a-date-eyebrow">LOADING...</div>
+              <div class="page-title" id="a-day-title">ACTIVITY LOG</div>
+            </div>
+          </div>
+
+          <div id="a-reminder-container"></div>
+
+          <div class="grid g2">
+            <div class="card">
+              <div class="sec-title" style="margin-bottom:18px">LOG ACTIVITY</div>
+              <div class="f-group"><label class="f-label">Activity type</label>
+                <select class="f-input" id="a-type">
+                  <option value="WALKING">Walking</option>
+                  <option value="RUNNING">Running</option>
+                  <option value="CYCLING">Cycling</option>
+                  <option value="SWIMMING">Swimming</option>
+                  <option value="GYM">Gym / Weights</option>
+                  <option value="YOGA">Yoga</option>
+                  <option value="HIIT">HIIT</option>
+                  <option value="WALKING_UPSTAIRS">Stairs</option>
+                </select>
+              </div>
+              <div class="f-row">
+                <div class="f-group"><label class="f-label">Duration (min)</label><input class="f-input" id="a-dur"
+                    type="number" placeholder="30"></div>
+                <div class="f-group"><label class="f-label">Steps (optional)</label><input class="f-input" id="a-steps"
+                    type="number" placeholder="0"></div>
+              </div>
+              <div
+                style="background:var(--black3);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:16px;font-family:var(--font-num);font-size:12px;color:var(--gray1);border-left:2px solid var(--volt);">
+                Calories burned are auto-calculated using your weight and MET values.
+              </div>
+              <button class="btn-full btn-full-volt" onclick="logActivity()">SAVE ACTIVITY</button>
+            </div>
+            <div class="card">
+              <div class="sec-head">
+                <div class="sec-title">TODAY</div>
+                <button class="btn-sm" style="color:var(--red);border-color:rgba(255,51,51,0.3)"
+                  onclick="resetActivity()">RESET ALL</button>
+              </div>
+              <div class="grid g3" style="margin-bottom:18px">
+                <div style="text-align:center">
+                  <div class="stat-eye" style="justify-content:center">Burned</div>
+                  <div class="stat-number" style="color:var(--red);font-size:36px" id="a-cal-tot">0</div>
+                </div>
+                <div style="text-align:center">
+                  <div class="stat-eye" style="justify-content:center">Steps</div>
+                  <div class="stat-number" style="color:var(--blue);font-size:36px" id="a-step-tot">0</div>
+                </div>
+                <div style="text-align:center">
+                  <div class="stat-eye" style="justify-content:center">Dist</div>
+                  <div class="stat-number" style="color:var(--volt);font-size:36px" id="a-dist-tot">0<span
+                      class="stat-unit">km</span></div>
+                </div>
+              </div>
+              <div id="a-list">
+                <div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No activities yet</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card anim-fade-up"
+            style="margin-top: 20px; animation-delay: .15s; background: linear-gradient(145deg, rgba(15,15,15,0.8), rgba(25,25,35,0.9)); border: 1px solid rgba(51,153,255,0.2);">
+            <div class="sec-head">
+              <div class="sec-title" style="color: var(--blue)">🤖 AI BURN PREDICTOR (XGBOOST)</div>
+              <div class="badge badge-blue" style="background: rgba(51,153,255,0.1); color: var(--blue)">BETA</div>
+            </div>
+            <div style="font-family: var(--font-num); font-size: 13px; color: var(--gray1); margin-bottom: 16px;">
+              Predict future calorie burn using our XGBoost machine learning model based on your expected workout
+              parameters.
+            </div>
+            <div class="f-row">
+              <div class="f-group">
+                <label class="f-label" style="color: var(--blue)">Future Duration (min)</label>
+                <input class="f-input" id="xgb-dur" type="number" placeholder="45"
+                  style="border-color: rgba(51,153,255,0.3)">
+              </div>
+              <div class="f-group">
+                <label class="f-label" style="color: var(--blue)">Expected Avg Heart Rate</label>
+                <input class="f-input" id="xgb-hr" type="number" placeholder="130"
+                  style="border-color: rgba(51,153,255,0.3)">
+              </div>
+            </div>
+            <button class="btn-full" onclick="predictBurn()"
+              style="background: rgba(51,153,255,0.15); border: 1px solid rgba(51,153,255,0.4); color: var(--blue); margin-top: 8px;">RUN
+              XGBOOST PREDICTION</button>
+            <div id="xgb-result"
+              style="margin-top: 16px; font-family: var(--font-display); font-size: 32px; color: var(--blue); text-align: center; display: none;">
+              <span id="xgb-cal-val">0</span> <span style="font-size: 16px; color: var(--gray1)">KCAL</span>
+            </div>
+          </div>
+
+          <div class="card monthly-card anim-fade-up" style="margin-top: 20px; animation-delay: .25s">
+            <div class="sec-head">
+              <div class="sec-title" style="color: var(--volt)">MONTHLY PROGRESS</div>
+              <div class="badge badge-volt" id="a-month-name">APRIL</div>
+            </div>
+            <div class="grid g4" style="margin-top: 10px;">
+              <div>
+                <div class="stat-eye">Burned</div>
+                <div class="stat-number" style="font-size: 32px;" id="a-month-cal">0</div>
+                <div class="stat-sub">total kcal</div>
+              </div>
+              <div>
+                <div class="stat-eye">Steps</div>
+                <div class="stat-number" style="font-size: 32px;" id="a-month-steps">0</div>
+                <div class="stat-sub">total steps</div>
+              </div>
+              <div>
+                <div class="stat-eye">Distance</div>
+                <div class="stat-number" style="font-size: 32px;" id="a-month-dist">0 km</div>
+                <div class="stat-sub">total distance</div>
+              </div>
+              <div>
+                <div class="stat-eye">Sessions</div>
+                <div class="stat-number" style="font-size: 32px;" id="a-month-count">0</div>
+                <div class="stat-sub">days active</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="page" id="page-water">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">DAILY HYDRATION</div>
+              <div class="page-title">WATER INTAKE</div>
+            </div>
+          </div>
+          <div class="grid g2">
+            <div class="card" style="text-align:center;padding:40px 28px">
+              <div class="stat-eye" style="justify-content:center">Today's total</div>
+              <div class="stat-number" style="color:#26c6da;font-size:80px;margin:12px 0" id="w-total">0.0<span
+                  class="stat-unit">L</span></div>
+              <div class="prog" style="height:8px;margin:0 0 12px">
+                <div class="prog-fill" id="w-bar" style="background:#26c6da;width:0%"></div>
+              </div>
+              <div style="font-family:var(--font-num);font-size:13px;color:var(--gray1)">Goal: <span
+                  id="w-goal-lbl">2.0</span> L per day</div>
+              <div class="water-grid">
+                <button class="btn-water" onclick="logWater(150)">150<br><span
+                    style="font-size:11px;font-family:var(--font-num);color:var(--gray1)">ml</span></button>
+                <button class="btn-water" onclick="logWater(250)">250<br><span
+                    style="font-size:11px;font-family:var(--font-num);color:var(--gray1)">ml</span></button>
+                <button class="btn-water" onclick="logWater(500)">500<br><span
+                    style="font-size:11px;font-family:var(--font-num);color:var(--gray1)">ml</span></button>
+                <button class="btn-water" onclick="logWater(750)">750<br><span
+                    style="font-size:11px;font-family:var(--font-num);color:var(--gray1)">ml</span></button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="sec-title" style="margin-bottom:16px">CUSTOM AMOUNT</div>
+              <div class="f-group"><label class="f-label">Amount (ml)</label><input class="f-input" id="w-custom"
+                  type="number" placeholder="250"></div>
+              <button class="btn-full btn-full-volt" style="margin-bottom:24px"
+                onclick="logWater(parseInt(document.getElementById('w-custom').value)||250)">LOG WATER</button>
+              <div style="border-top:1px solid var(--border);padding-top:20px">
+                <div class="sec-title" style="font-size:18px;margin-bottom:10px">HYDRATION TIPS</div>
+                <div style="font-family:var(--font-num);font-size:13px;color:var(--gray1);line-height:1.8">
+                  Start your day with 500ml immediately after waking. Drink before, during and after exercise. Add 500ml
+                  for every hour of intense training.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-sleep">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">RECOVERY</div>
+              <div class="page-title">SLEEP TRACKER</div>
+            </div>
+          </div>
+          <div class="grid g2">
+            <div class="card">
+              <div class="sec-title" style="margin-bottom:18px">LOG LAST NIGHT</div>
+              <div class="f-group"><label class="f-label">Hours slept</label><input class="f-input" id="sl-hrs"
+                  type="number" step="0.5" placeholder="7.5"></div>
+              <div class="f-group"><label class="f-label">Sleep quality</label>
+                <div class="stars" id="star-row"><span class="star" onclick="setStar(1)">★</span><span class="star"
+                    onclick="setStar(2)">★</span><span class="star" onclick="setStar(3)">★</span><span class="star"
+                    onclick="setStar(4)">★</span><span class="star" onclick="setStar(5)">★</span></div>
+                <div style="font-family:var(--font-num);font-size:12px;color:var(--gray1)" id="star-lbl">Tap to rate
+                </div>
+              </div>
+              <div class="f-row">
+                <div class="f-group"><label class="f-label">Bedtime</label><input class="f-input" id="sl-bed"
+                    type="time"></div>
+                <div class="f-group"><label class="f-label">Wake time</label><input class="f-input" id="sl-wake"
+                    type="time"></div>
+              </div>
+              <div class="f-group"><label class="f-label">Notes</label><input class="f-input" id="sl-notes"
+                  placeholder="How did you sleep?"></div>
+              <button class="btn-full btn-full-volt" onclick="logSleep()">SAVE SLEEP</button>
+            </div>
+            <div class="card">
+              <div class="sec-head">
+                <div class="sec-title">LAST 7 NIGHTS</div>
+                <div style="font-family:var(--font-num);font-size:13px;color:var(--gray1)" id="sl-avg"></div>
+              </div>
+              <div id="sl-list">
+                <div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No sleep data yet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-heartrate">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">VITALS</div>
+              <div class="page-title">HEART RATE</div>
+            </div>
+          </div>
+          <div class="grid g2">
+            <div class="card">
+              <div class="sec-title" style="margin-bottom:18px">LOG READING</div>
+              <div class="f-group"><label class="f-label">BPM</label><input class="f-input" id="hr-bpm" type="number"
+                  placeholder="72"
+                  style="font-size:32px;font-family:var(--font-display);height:64px;letter-spacing:.04em"></div>
+              <div class="f-group"><label class="f-label">Context</label>
+                <select class="f-input" id="hr-ctx">
+                  <option value="resting">Resting</option>
+                  <option value="active">During workout</option>
+                  <option value="post_workout">Post workout</option>
+                  <option value="morning">Morning</option>
+                </select>
+              </div>
+              <button class="btn-full btn-full-volt" onclick="logHR()">SAVE READING</button>
+              <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
+                  <div style="background:var(--black3);border-radius:var(--radius-sm);padding:14px;text-align:center">
+                    <div
+                      style="font-family:var(--font-num);font-size:10px;color:var(--gray1);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">
+                      Normal</div>
+                    <div style="font-family:var(--font-display);font-size:24px;color:var(--volt)">60-100</div>
+                    <div style="font-family:var(--font-num);font-size:11px;color:var(--gray1)">bpm</div>
+                  </div>
+                  <div style="background:var(--black3);border-radius:var(--radius-sm);padding:14px;text-align:center">
+                    <div
+                      style="font-family:var(--font-num);font-size:10px;color:var(--gray1);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">
+                      Athletes</div>
+                    <div style="font-family:var(--font-display);font-size:24px;color:var(--blue)">40-60</div>
+                    <div style="font-family:var(--font-num);font-size:11px;color:var(--gray1)">bpm</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="sec-head">
+                <div class="sec-title">RECENT READINGS</div>
+                <div style="font-family:var(--font-num);font-size:13px;color:var(--gray1)" id="hr-avg"></div>
+              </div>
+              <div id="hr-list">
+                <div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No readings yet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-measurements">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">BODY ANALYTICS</div>
+              <div class="page-title">MEASUREMENTS</div>
+            </div>
+          </div>
+          <div class="grid g2">
+            <div class="card">
+              <div class="sec-title" style="margin-bottom:18px">LOG TODAY</div>
+              <div class="f-row">
+                <div class="f-group"><label class="f-label">Weight (kg)</label><input class="f-input" id="m-wt"
+                    type="number" step="0.1" placeholder="70.0"></div>
+                <div class="f-group"><label class="f-label">Chest (cm)</label><input class="f-input" id="m-chest"
+                    type="number" step="0.5" placeholder="95"></div>
+              </div>
+              <div class="f-row">
+                <div class="f-group"><label class="f-label">Waist (cm)</label><input class="f-input" id="m-waist"
+                    type="number" step="0.5" placeholder="80"></div>
+                <div class="f-group"><label class="f-label">Arms (cm)</label><input class="f-input" id="m-arms"
+                    type="number" step="0.5" placeholder="32"></div>
+              </div>
+              <div class="f-group" style="max-width:50%"><label class="f-label">Hips (cm)</label><input class="f-input"
+                  id="m-hips" type="number" step="0.5" placeholder="95"></div>
+              <button class="btn-full btn-full-volt" onclick="logMeasurement()">SAVE MEASUREMENTS</button>
+            </div>
+            <div class="card">
+              <div class="sec-title" style="margin-bottom:16px">HISTORY</div>
+              <div id="m-list">
+                <div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No measurements yet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-workout">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">TRAINING</div>
+              <div class="page-title">WORKOUT PLANS</div>
+            </div>
+          </div>
+          <div class="grid g2" id="plans-grid"></div>
+          <div class="card" id="plan-detail" style="display:none;margin-top:0">
+            <div class="sec-head">
+              <div class="sec-title" id="plan-detail-name"></div><button class="btn-sm" onclick="closePlan()">✖
+                CLOSE</button>
+            </div>
+            <div id="plan-detail-body"></div>
+          </div>
+        </div>
+
+        <div class="page" id="page-calculators">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">TOOLS</div>
+              <div class="page-title">CALCULATORS</div>
+            </div>
+          </div>
+          <div class="grid g2">
+            <div class="card">
+              <div class="sec-title" style="margin-bottom:18px">BMI CALCULATOR</div>
+              <div class="f-row">
+                <div class="f-group"><label class="f-label">Weight (kg)</label><input class="f-input" id="bmi-wt"
+                    type="number" placeholder="70"></div>
+                <div class="f-group"><label class="f-label">Height (cm)</label><input class="f-input" id="bmi-ht"
+                    type="number" placeholder="170"></div>
+              </div>
+              <button class="btn-full btn-full-volt" onclick="calcBMI()">CALCULATE BMI</button>
+              <div id="bmi-result" style="display:none;margin-top:22px">
+                <div style="text-align:center;margin-bottom:16px">
+                  <div
+                    style="font-family:var(--font-num);font-size:11px;color:var(--gray1);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">
+                    Your BMI</div>
+                  <div style="font-family:var(--font-display);font-size:80px;letter-spacing:.02em;line-height:1"
+                    id="bmi-val"></div>
+                  <div class="badge" id="bmi-cat" style="margin-top:8px;font-size:13px;padding:5px 16px"></div>
+                </div>
+                <div class="bmi-track">
+                  <div class="bmi-needle" id="bmi-needle"></div>
+                </div>
+                <div class="bmi-labels">
+                  <span>Underweight</span><span>Normal</span><span>Overweight</span><span>Obese</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="sec-title" style="margin-bottom:18px">TDEE CALCULATOR</div>
+              <div class="f-row">
+                <div class="f-group"><label class="f-label">Age</label><input class="f-input" id="cc-age" type="number"
+                    placeholder="25"></div>
+                <div class="f-group"><label class="f-label">Gender</label><select class="f-input" id="cc-gender">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select></div>
+              </div>
+              <div class="f-row">
+                <div class="f-group"><label class="f-label">Weight (kg)</label><input class="f-input" id="cc-wt"
+                    type="number" placeholder="70"></div>
+                <div class="f-group"><label class="f-label">Height (cm)</label><input class="f-input" id="cc-ht"
+                    type="number" placeholder="170"></div>
+              </div>
+              <div class="f-group"><label class="f-label">Activity level</label>
+                <select class="f-input" id="cc-act">
+                  <option value="sedentary">Sedentary (office, no exercise)</option>
+                  <option value="light">Light (1–3 days/week)</option>
+                  <option value="moderate" selected>Moderate (3–5 days/week)</option>
+                  <option value="active">Active (6–7 days/week)</option>
+                  <option value="very_active">Very active (athlete / physical job)</option>
+                </select>
+              </div>
+              <button class="btn-full btn-full-volt" onclick="calcCals()">CALCULATE TDEE</button>
+              <div id="cc-result" style="display:none;margin-top:20px">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center">
+                  <div style="background:var(--black3);border-radius:var(--radius-sm);padding:14px">
+                    <div
+                      style="font-family:var(--font-num);font-size:10px;color:var(--gray1);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">
+                      BMR</div>
+                    <div style="font-family:var(--font-display);font-size:28px" id="cc-bmr"></div>
+                  </div>
+                  <div style="background:var(--black3);border-radius:var(--radius-sm);padding:14px">
+                    <div
+                      style="font-family:var(--font-num);font-size:10px;color:var(--volt);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">
+                      MAINTAIN</div>
+                    <div style="font-family:var(--font-display);font-size:28px;color:var(--volt)" id="cc-tdee"></div>
+                  </div>
+                  <div style="background:var(--black3);border-radius:var(--radius-sm);padding:14px">
+                    <div
+                      style="font-family:var(--font-num);font-size:10px;color:var(--orange);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">
+                      LOSE WEIGHT</div>
+                    <div style="font-family:var(--font-display);font-size:28px;color:var(--orange)" id="cc-lose"></div>
+                  </div>
+                </div>
+                <div
+                  style="margin-top:14px;padding:14px;background:var(--black3);border-radius:var(--radius-sm);font-family:var(--font-num);font-size:13px;color:var(--gray1)">
+                  Recommended macros: Protein <b style="color:var(--white)" id="cc-prot"></b>g · Carbs <b
+                    style="color:var(--white)" id="cc-carb"></b>g · Fat <b style="color:var(--white)" id="cc-fat"></b>g
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-history">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">PERFORMANCE DATA</div>
+              <div class="page-title">ANALYTICS</div>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:18px">
+            <div class="sec-title" style="margin-bottom:16px">CALORIES — IN VS BURNED</div>
+            <div class="chart-wrap"><canvas id="cal-chart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="sec-title" style="margin-bottom:16px">DAILY STEPS</div>
+            <div class="chart-wrap"><canvas id="step-chart"></canvas></div>
+          </div>
+        </div>
+
+        <div class="page" id="page-profile">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">ACCOUNT</div>
+              <div class="page-title">PROFILE & GOALS</div>
+            </div>
+          </div>
+          <div class="card" style="max-width:560px">
+            <div class="f-row">
+              <div class="f-group"><label class="f-label">Name</label><input class="f-input" id="g-name"
+                  placeholder="Your name"></div>
+              <div class="f-group"><label class="f-label">Age</label><input class="f-input" id="g-age" type="number"
+                  placeholder="25"></div>
+            </div>
+            <div class="f-row">
+              <div class="f-group"><label class="f-label">Gender</label><select class="f-input" id="g-gender">
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select></div>
+              <div class="f-group"><label class="f-label">Weight (kg)</label><input class="f-input" id="g-wt"
+                  type="number" placeholder="70"></div>
+            </div>
+            <div class="f-row">
+              <div class="f-group"><label class="f-label">Height (cm)</label><input class="f-input" id="g-ht"
+                  type="number" placeholder="170"></div>
+              <div class="f-group"><label class="f-label">Calorie goal</label><input class="f-input" id="g-cal"
+                  type="number" placeholder="2000"></div>
+            </div>
+            <div class="f-row">
+              <div class="f-group"><label class="f-label">Step goal</label><input class="f-input" id="g-steps"
+                  type="number" placeholder="8000"></div>
+              <div class="f-group"><label class="f-label">Water goal (L)</label><input class="f-input" id="g-water"
+                  type="number" step="0.5" placeholder="2.0"></div>
+            </div>
+            <button class="btn-full btn-full-volt" onclick="saveProfile()">SAVE PROFILE</button>
+          </div>
+        </div>
+
+        <!-- ── FASTING TRACKER PAGE ──────────────────────────── -->
+        <div class="page" id="page-fasting">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">INTERMITTENT FASTING</div>
+              <div class="page-title">FAST TIMER</div>
+            </div>
+          </div>
+
+          <div class="grid g2">
+            <div class="card" style="text-align:center; padding:40px 28px">
+              <div id="fast-status-pill" class="fast-status-pill idle">⏸ NO ACTIVE FAST</div>
+
+              <div class="fast-timer-wrap" id="fast-timer-wrap">
+                <svg class="fast-ring-svg" width="260" height="260" viewBox="0 0 260 260">
+                  <circle class="fast-ring-bg" cx="130" cy="130" r="110" />
+                  <circle class="fast-ring-glow" id="fast-ring-glow" cx="130" cy="130" r="110"
+                    stroke="var(--volt)" style="stroke-dasharray:691.15;stroke-dashoffset:691.15" />
+                  <circle class="fast-ring-fill" id="fast-ring-fill" cx="130" cy="130" r="110"
+                    stroke="var(--volt)" style="stroke-dasharray:691.15;stroke-dashoffset:691.15" />
+                </svg>
+                <div class="fast-center">
+                  <div class="fast-time" id="fast-time-display">00:00</div>
+                  <div class="fast-time-label" id="fast-time-label">HOURS : MINUTES</div>
+                </div>
+              </div>
+
+              <div class="fast-info-grid">
+                <div class="fast-info-box">
+                  <div class="fast-info-val" style="color:var(--volt)" id="fast-start-time">--:--</div>
+                  <div class="fast-info-lbl">FAST STARTED</div>
+                </div>
+                <div class="fast-info-box">
+                  <div class="fast-info-val" style="color:var(--blue)" id="fast-end-time">--:--</div>
+                  <div class="fast-info-lbl">EATING WINDOW</div>
+                </div>
+                <div class="fast-info-box">
+                  <div class="fast-info-val" style="color:var(--orange)" id="fast-goal-hours">16</div>
+                  <div class="fast-info-lbl">GOAL HOURS</div>
+                </div>
+                <div class="fast-info-box">
+                  <div class="fast-info-val" style="color:#b388ff" id="fast-remaining">--:--</div>
+                  <div class="fast-info-lbl">REMAINING</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="sec-title" style="margin-bottom:18px">FASTING PROTOCOL</div>
+              <div class="fast-protocol-grid">
+                <button class="fast-protocol-btn selected" onclick="selectProtocol('16:8', this)">
+                  16:8
+                  <span>Popular</span>
+                </button>
+                <button class="fast-protocol-btn" onclick="selectProtocol('18:6', this)">
+                  18:6
+                  <span>Advanced</span>
+                </button>
+                <button class="fast-protocol-btn" onclick="selectProtocol('20:4', this)">
+                  20:4
+                  <span>Warrior</span>
+                </button>
+              </div>
+
+              <div id="fast-action-area">
+                <button class="btn-full btn-full-volt" id="btn-start-fast" onclick="startFast()">
+                  ⏱️ START FASTING
+                </button>
+                <button class="btn-full btn-full-outline" id="btn-end-fast" onclick="endFast()" style="display:none; margin-top:12px">
+                  🍽️ END FAST & EAT
+                </button>
+              </div>
+
+              <div style="margin-top:28px; padding-top:24px; border-top:1px solid var(--border)">
+                <div class="sec-title" style="font-size:18px; margin-bottom:14px">HOW IT WORKS</div>
+                <div style="font-family:var(--font-num); font-size:13px; color:var(--gray1); line-height:1.8">
+                  <b style="color:var(--volt)">16:8</b> — Fast for 16 hours, eat within an 8-hour window. Most popular and sustainable.<br>
+                  <b style="color:var(--volt)">18:6</b> — Extended fasting with a 6-hour eating window for advanced practitioners.<br>
+                  <b style="color:var(--volt)">20:4</b> — The "Warrior Diet." 20 hours of fasting with a 4-hour eating window.<br><br>
+                  <b style="color:var(--volt)">💡 TIP:</b> Stay hydrated during your fast! Black coffee and water are always allowed.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── GAMIFICATION PAGE ─────────────────────────────── -->
+        <div class="page" id="page-gamification">
+          <div class="page-header">
+            <div>
+              <div class="page-eyebrow">THE ATHLETE'S JOURNEY</div>
+              <div class="page-title">LEVEL UP</div>
+            </div>
+          </div>
+
+          <!-- Hero XP Card -->
+          <div class="gami-hero anim-fade-up">
+            <div class="gami-avatar" id="gami-avatar">🏃</div>
+            <div class="gami-title" id="gami-title-label">CURRENT RANK</div>
+            <div class="gami-level">LVL <span id="gami-level">1</span></div>
+            <div class="gami-level-name" id="gami-level-name">ROOKIE</div>
+
+            <div class="gami-xp-bar-wrap">
+              <div class="gami-xp-header">
+                <div class="gami-xp-label">EXPERIENCE POINTS</div>
+                <div class="gami-xp-val" id="gami-xp-text">0 / 1,000 XP</div>
+              </div>
+              <div class="gami-xp-bar">
+                <div class="gami-xp-fill" id="gami-xp-fill" style="width:0%"></div>
+              </div>
+            </div>
+
+            <!-- Tier Track -->
+            <div class="gami-tier-track">
+              <div class="gami-tier">
+                <div class="gami-tier-dot current" id="tier-rookie">🌱</div>
+                <div class="gami-tier-lbl active">ROOKIE</div>
+              </div>
+              <div class="gami-tier">
+                <div class="gami-tier-dot" id="tier-pro">⚡</div>
+                <div class="gami-tier-lbl">PRO</div>
+              </div>
+              <div class="gami-tier">
+                <div class="gami-tier-dot" id="tier-elite">👑</div>
+                <div class="gami-tier-lbl">ELITE</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats Row -->
+          <div class="gami-stats-row anim-fade-up" style="animation-delay:.1s">
+            <div class="gami-stat-card">
+              <div class="gami-stat-icon">⚡</div>
+              <div class="gami-stat-val" id="gami-total-xp">0</div>
+              <div class="gami-stat-lbl">TOTAL XP</div>
+            </div>
+            <div class="gami-stat-card">
+              <div class="gami-stat-icon">🏅</div>
+              <div class="gami-stat-val" id="gami-badge-count">0</div>
+              <div class="gami-stat-lbl">BADGES EARNED</div>
+            </div>
+            <div class="gami-stat-card">
+              <div class="gami-stat-icon">🎯</div>
+              <div class="gami-stat-val" id="gami-next-lvl">1,000</div>
+              <div class="gami-stat-lbl">XP TO NEXT LVL</div>
+            </div>
+          </div>
+
+          <!-- Achievement Badges -->
+          <div class="card anim-fade-up" style="animation-delay:.15s">
+            <div class="sec-head" style="margin-bottom:20px">
+              <div class="sec-title" style="color:#ffaa00">🏅 ACHIEVEMENT BADGES</div>
+              <div class="badge" style="background:rgba(255,170,0,0.12);color:#ffaa00" id="gami-unlocked-label">0 UNLOCKED</div>
+            </div>
+            <div class="gami-badges-grid" id="gami-badges-grid">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- XP Earning Guide -->
+          <div class="card anim-fade-up" style="margin-top:20px; animation-delay:.2s">
+            <div class="sec-title" style="margin-bottom:16px">⚡ HOW TO EARN XP</div>
+            <div style="font-family:var(--font-num); font-size:13px; color:var(--gray1); line-height:2">
+              <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border)">
+                <span>🥗 Log a meal</span>
+                <span style="color:var(--volt); font-weight:700">+50 XP</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border)">
+                <span>🏃 Log a workout</span>
+                <span style="color:var(--volt); font-weight:700">+100 XP</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border)">
+                <span>💧 Log water intake</span>
+                <span style="color:var(--volt); font-weight:700">+20 XP</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border)">
+                <span>💤 Log sleep</span>
+                <span style="color:var(--volt); font-weight:700">+150 XP</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; padding:8px 0">
+                <span>⏱️ Complete a fast</span>
+                <span style="color:var(--volt); font-weight:700">+150 XP</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <div id="toast"></div>
+
+  <script>
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+      });
+    }
+
+    const API = window.location.origin; // Dynamically use the server origin
+    let token = localStorage.getItem("gff_token") || "";
+    let user = JSON.parse(localStorage.getItem("gff_user") || "{}");
+    let sleepRating = 3, calChart, stepChart;
+
+    if (token) bootApp();
+
+    // —-- HERO ANIMATION —---------------------------------------------------------
+    function animateHero() {
+      const w1 = document.getElementById("h-track");
+      const w2 = document.getElementById("h-your");
+      const w3 = document.getElementById("h-activity");
+      if (!w1 || !w2 || !w3) return;
+
+      // Sequential Apple-style entry
+      setTimeout(() => w1.classList.add("in"), 100);
+      setTimeout(() => w2.classList.add("in"), 500);
+      setTimeout(() => w3.classList.add("in"), 900);
+
+      // Animate map as before
+      setTimeout(() => {
+        const path = document.getElementById("map-path");
+        if (path) path.style.strokeDashoffset = "0";
+        const cursor = document.getElementById("map-cursor");
+        if (cursor) { cursor.setAttribute("cx", "90"); cursor.setAttribute("cy", "40"); }
+      }, 1200);
+    }
+
+    // —-- SCROLL INTERACTIONS (OPTIMIZED) —----------------------------------------
+    let scrollTicking = false;
+    const scrollCache = {
+      nav: null,
+      bg: null,
+      w1: null, w2: null, w3: null,
+      parallaxCards: []
+    };
+
+    function initScrollCache() {
+      scrollCache.nav = document.getElementById("sidebar");
+      scrollCache.bg = document.querySelector("#video-bg-container video");
+      scrollCache.w1 = document.getElementById("h-track");
+      scrollCache.w2 = document.getElementById("h-your");
+      scrollCache.w3 = document.getElementById("h-activity");
+      scrollCache.parallaxCards = document.querySelectorAll(".card, .hero-side-card, .ring-card");
+    }
+
+    document.querySelector(".content").addEventListener("scroll", (e) => {
+      const scroll = e.target.scrollTop;
+      if (!scrollTicking) {
+        window.requestAnimationFrame(() => {
+          if (!scrollCache.nav) initScrollCache();
+          
+          // Navbar shrink
+          if (scroll > 50) scrollCache.nav?.classList.add("scrolled");
+          else scrollCache.nav?.classList.remove("scrolled");
+
+          // Parallax updates using translate3d for GPU acceleration
+          if (scrollCache.bg) scrollCache.bg.style.transform = `translate3d(0, ${scroll * 0.2}px, 0)`;
+
+          if (scrollCache.w1) scrollCache.w1.style.transform = `translate3d(${scroll * -0.1}px, ${scroll * -0.15}px, 0)`;
+          if (scrollCache.w2) scrollCache.w2.style.transform = `translate3d(${scroll * 0.1}px, ${scroll * -0.15}px, 0)`;
+          if (scrollCache.w3) scrollCache.w3.style.transform = `translate3d(0, ${scroll * -0.1}px, 0) scale(${1 + scroll * 0.0002})`;
+
+          scrollCache.parallaxCards.forEach(c => {
+            if (!c.matches(":hover")) {
+              c.style.transform = `translate3d(0, ${scroll * -0.3}px, 0)`;
+            }
+          });
+
+          scrollTicking = false;
+        });
+        scrollTicking = true;
+      }
+    });
+
+    // —-- 3D TILT INTERACTION (OPTIMIZED) —----------------------------------------
+    function init3DTilt() {
+      const cards = document.querySelectorAll(".card, .hero-side-card, .ring-card, .menu-card");
+      cards.forEach(card => {
+        let rect = null;
+        let tiltTicking = false;
+
+        card.addEventListener("mouseenter", () => {
+          rect = card.getBoundingClientRect(); // Calculate only once on enter
+        });
+
+        card.addEventListener("mousemove", (e) => {
+          if (!rect || tiltTicking) return;
+          
+          tiltTicking = true;
+          window.requestAnimationFrame(() => {
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const rotateX = (y - centerY) / (rect.height / 10);
+            const rotateY = (centerX - x) / (rect.width / 10);
+
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.03, 1.03, 1.03) translateY(-5px)`;
+            tiltTicking = false;
+          });
+        });
+
+        card.addEventListener("mouseleave", () => {
+          card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1) translateY(0)`;
+          rect = null;
+        });
+      });
+    }
+    init3DTilt();
+
+    function toggleMenu(show) {
+      const overlay = document.getElementById("menu-overlay");
+      const sidebar = document.getElementById("sidebar");
+
+      // Auto-toggle if 'show' is not provided
+      const isActive = overlay.classList.contains("active");
+      const targetState = (show !== undefined) ? show : !isActive;
+
+      if (targetState) {
+        overlay.classList.add("active");
+        sidebar.classList.add("menu-open");
+      } else {
+        overlay.classList.remove("active");
+        sidebar.classList.remove("menu-open");
+      }
+    }
+
+    function menuNav(p) {
+      toggleMenu(false);
+      nav(p);
+    }
+
+    // —-- AUTH —--------------------------------------------------------------------
+    function authTab(t) {
+      document.getElementById("form-login").style.display = t === "login" ? "" : "none";
+      document.getElementById("form-register").style.display = t === "register" ? "" : "none";
+      document.querySelectorAll(".auth-switch-btn").forEach((b, i) => b.classList.toggle("active", (i === 0 && t === "login") || (i === 1 && t === "register")));
+    }
+
+    async function doLogin() {
+      const e = gv("l-email"), p = gv("l-pass"), err = document.getElementById("login-err");
+      err.style.display = "none";
+      if (!e || !p) { showErr(err, "Enter email and password"); return; }
+      const r = await fetch(API + "/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: e, password: p }) });
+      const j = await r.json();
+      if (!r.ok) { showErr(err, j.detail || "Login failed"); return; }
+      saveSession(j); bootApp();
+    }
+
+    async function doRegister() {
+      const n = gv("r-name"), e = gv("r-email"), p = gv("r-pass"), err = document.getElementById("reg-err");
+      err.style.display = "none";
+      if (!n || !e || !p) { showErr(err, "Fill in all fields"); return; }
+      if (p.length < 6) { showErr(err, "Password must be at least 6 characters"); return; }
+      const r = await fetch(API + "/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n, email: e, password: p }) });
+      const j = await r.json();
+      if (!r.ok) { showErr(err, j.detail || "Registration failed"); return; }
+      saveSession(j); bootApp();
+    }
+
+    function showErr(el, msg) { el.textContent = msg; el.style.display = "block"; }
+    function saveSession(j) { token = j.token; user = j.user; localStorage.setItem("gff_token", token); localStorage.setItem("gff_user", JSON.stringify(user)); }
+
+    function bootApp() {
+      toggleMenu(false);
+      document.getElementById("auth-screen").style.display = "none";
+      document.getElementById("app-screen").style.display = "block";
+      nav("dashboard");
+      animateHero();
+    }
+
+    function logout() {
+      toggleMenu(false);
+      token = ""; user = {}; localStorage.removeItem("gff_token"); localStorage.removeItem("gff_user");
+      document.getElementById("app-screen").style.display = "none";
+      document.getElementById("auth-screen").style.display = "flex";
+    }
+
+    // —-- NAV —---------------------------------------------------------------------
+    function nav(page) {
+      toggleMenu(false);
+      const sidebar = document.getElementById("sidebar");
+      if (sidebar) sidebar.classList.remove("expanded");
+      document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+      document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+      document.getElementById("page-" + page).classList.add("active");
+      document.querySelectorAll(".nav-btn").forEach(b => { if (b.textContent.toLowerCase().includes(page.substr(0, 4))) b.classList.add("active"); });
+      
+      const loaders = { dashboard: loadDashboard, food: loadFood, aicoach: () => { if (aiActive) stopAICoach(); }, activity: loadActivity, water: loadWater, sleep: loadSleep, heartrate: loadHR, measurements: loadMeasurements, workout: loadWorkouts, history: loadHistory, profile: loadProfile, fasting: loadFasting, gamification: loadGamification };
+      if (loaders[page]) loaders[page]();
+    }
+
+    // —-- API —---------------------------------------------------------------------
+    async function api(path, method = "GET", body = null) {
+      const opts = { method, headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token } };
+      if (body) opts.body = JSON.stringify(body);
+      try {
+        const r = await fetch(API + path, opts);
+        const j = await r.json();
+        if (r.status === 401) { logout(); return null; }
+        return j;
+      }
+      catch (e) {
+        toast("Server offline — check your IP address", false);
+        return null; // Ensure something is returned in case of error
+      }
+    }
+
+    // —-- DASHBOARD —---------------------------------------------------------------
+    async function loadDashboard() {
+      const d = await api("/dashboard/today"); if (!d) return;
+      const h = new Date().getHours();
+      const greet = h < 12 ? "GOOD MORNING" : h < 17 ? "GOOD AFTERNOON" : "GOOD EVENING";
+      set("d-greeting-small", greet);
+      set("d-name-title", (d.user_name || "ATHLETE").toUpperCase());
+      set("d-date", new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }).toUpperCase());
+      animCount("d-hero-net", d.net_calories);
+      set("d-hero-bg", d.net_calories);
+      set("d-hero-sub", `${d.calorie_remaining} kcal remaining · ${d.calorie_pct}% of daily goal`);
+      set("d-hero-in", d.calories_in);
+      set("d-hero-out", d.calories_out);
+      set("d-hero-bmr", d.bmr);
+      set("d-hero-dist", `${d.distance_km} km`);
+      set("h-dist", `${d.distance_km} KM`);
+      animCount("d-steps", d.steps);
+      set("d-step-goal-sub", `Goal: ${(d.step_goal || 8000).toLocaleString()}`);
+      set("d-step-badge", d.step_pct + "%");
+      set("d-step-bar", ""); document.getElementById("d-step-bar").style.width = d.step_pct + "%";
+      set("d-cal-out", d.calories_out);
+      set("d-sleep", d.sleep_hours ? d.sleep_hours + "h" : "--");
+      set("d-sleep-sub", d.sleep_quality ? `Quality ${d.sleep_quality}/5` : "no data");
+      set("d-sleep-badge", d.sleep_hours ? d.sleep_hours + "h" : "—");
+      set("d-hr", d.resting_bpm || "--");
+      setRing("ring-cal", "rpct-cal", "rval-cal", "rgoal-cal", d.calories_in, d.calorie_goal, "kcal", d.calorie_pct);
+      setRing("ring-step", "rpct-step", "rval-step", "rgoal-step", d.steps, d.step_goal, "steps", d.step_pct);
+      const waterPct = d.water_pct || 0;
+      setRing("ring-water", "rpct-water", "rval-water", "rgoal-water", d.water_L, d.water_goal_L, "L", waterPct, true);
+
+      const fd = await api("/food/today");
+      document.getElementById("d-food-list").innerHTML = fd && fd.items.length
+        ? fd.items.slice(-5).map(i => `<div class="log-item"><div class="log-dot" style="background:var(--volt)"></div><div><div class="log-name">${i.food_name}</div><div class="log-meta">${i.meal_type.toUpperCase()}</div></div><div><div class="log-num" style="color:var(--volt)">${i.calories}</div><div class="log-unit">kcal</div></div></div>`).join("")
+        : '<div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No meals logged today</div>';
+
+      const ad = await api("/activity/today");
+      document.getElementById("d-act-list").innerHTML = ad && ad.items.length
+        ? ad.items.slice(-5).map(i => `<div class="log-item"><div class="log-dot" style="background:var(--red)"></div><div><div class="log-name">${i.activity_type.replace(/_/g, " ")}</div><div class="log-meta">${i.duration_min} MIN · ${i.steps} STEPS</div></div><div><div class="log-num" style="color:var(--red)">${i.calories_burned}</div><div class="log-unit">kcal</div></div></div>`).join("")
+        : '<div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No activities logged today</div>';
+    }
+
+    function setRing(ringId, pctId, valId, goalId, val, goal, unit, pct, isDecimal = false) {
+      const circ = 377; const offset = circ - (circ * (pct / 100));
+      const el = document.getElementById(ringId);
+      if (el) { el.style.setProperty("--target", offset); setTimeout(() => { el.style.strokeDashoffset = offset; }, 100); }
+      set(pctId, Math.round(pct) + "%");
+      set(valId, isDecimal ? val : Math.round(val) || 0);
+      set(goalId, `of ${goal} ${unit}`);
+    }
+
+    function animCount(id, target) {
+      const el = document.getElementById(id); if (!el) return;
+      const end = parseFloat(target) || 0; let start = 0; const dur = 800; const step = t => {
+        start = Math.min(end, start + (end / dur) * 16);
+        el.textContent = Math.round(start);
+        if (start < end) requestAnimationFrame(step);
+      }; requestAnimationFrame(step);
+    }
+
+    // —-- FOOD —--------------------------------------------------------------------
+    let searchTimeout = null;
+    let currentSuggestions = [];
+    let focusedSugIndex = -1;
+    let selectedFoodBase = null; // Stores macros per 100g
+
+    async function handleFoodSearch(q) {
+      const status = document.getElementById("food-search-status");
+      const suggestions = document.getElementById("food-suggestions");
+
+      if (!q || q.length < 2) {
+        suggestions.classList.remove("open");
+        status.textContent = "";
+        return;
+      }
+
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(async () => {
+        status.textContent = "Searching...";
+        const data = await api("/food/search?q=" + encodeURIComponent(q));
+
+        if (data && data.results && data.results.length > 0) {
+          currentSuggestions = data.results;
+          focusedSugIndex = -1;
+          status.textContent = `Found ${data.results.length} items`;
+
+          suggestions.innerHTML = data.results.map((f, i) => `
+        <div class="food-sug-item" onclick="selectFoodByIndex(${i})">
+          <div>
+            <div class="sug-name">${f.name}</div>
+            <div class="sug-meta">${f.brand || ''}</div>
+          </div>
+          <div class="sug-cal">${Math.round(f.cal)} <span style="font-size:10px">kcal</span></div>
+        </div>
+      `).join("");
+          suggestions.classList.add("open");
+        } else {
+          suggestions.classList.remove("open");
+          status.textContent = "No results found";
+        }
+      }, 400);
+    }
+
+    function handleFoodKey(e) {
+      const suggestions = document.getElementById("food-suggestions");
+      if (!suggestions.classList.contains("open")) return;
+
+      const items = suggestions.querySelectorAll(".food-sug-item");
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        focusedSugIndex = Math.min(focusedSugIndex + 1, items.length - 1);
+        updateFocusedSuggestion(items);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        focusedSugIndex = Math.max(focusedSugIndex - 1, 0);
+        updateFocusedSuggestion(items);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (focusedSugIndex >= 0) selectFoodByIndex(focusedSugIndex);
+      } else if (e.key === "Escape") {
+        suggestions.classList.remove("open");
+      }
+    }
+
+    function updateFocusedSuggestion(items) {
+      items.forEach((it, i) => it.classList.toggle("focused", i === focusedSugIndex));
+      if (focusedSugIndex >= 0) items[focusedSugIndex].scrollIntoView({ block: "nearest" });
+    }
+
+    function selectFoodByIndex(index) {
+      const food = currentSuggestions[index];
+      if (!food) return;
+
+      selectedFoodBase = food;
+      document.getElementById("f-name").value = food.name;
+      document.getElementById("food-suggestions").classList.remove("open");
+
+      // Show preview
+      const preview = document.getElementById("nutr-preview");
+      preview.classList.add("visible");
+
+      document.getElementById("np-name").textContent = food.name;
+      document.getElementById("np-brand").textContent = food.brand || "Standard Reference";
+
+      recalcFromServing();
+    }
+
+    function recalcFromServing() {
+      if (!selectedFoodBase) return;
+
+      const serving = gn("f-serving") || 100;
+      const ratio = serving / 100;
+
+      const cal = Math.round(selectedFoodBase.cal * ratio);
+      const prot = Math.round(selectedFoodBase.prot * ratio * 10) / 10;
+      const carb = Math.round(selectedFoodBase.carb * ratio * 10) / 10;
+      const fat = Math.round(selectedFoodBase.fat * ratio * 10) / 10;
+
+      // Update preview
+      document.getElementById("np-cal").textContent = cal;
+      document.getElementById("np-prot").textContent = prot + "g";
+      document.getElementById("np-carb").textContent = carb + "g";
+      document.getElementById("np-fat").textContent = fat + "g";
+
+      // Update hidden fields
+      setVal("f-cal", cal);
+      setVal("f-prot", prot);
+      setVal("f-carb", carb);
+      setVal("f-fat", fat);
+
+      // Also sync manual inputs just in case they open the details
+      setVal("f-cal-manual", cal);
+      setVal("f-prot-manual", prot);
+      setVal("f-carb-manual", carb);
+      setVal("f-fat-manual", fat);
+    }
+
+    function syncManual() {
+      // If user types manually, we use those values instead
+      setVal("f-cal", gn("f-cal-manual"));
+      setVal("f-prot", gn("f-prot-manual"));
+      setVal("f-carb", gn("f-carb-manual"));
+      setVal("f-fat", gn("f-fat-manual"));
+
+      // Hide preview if they are doing manual override and it's different? 
+      // Actually, let's just keep it simple.
+    }
+
+    function setVal(id, v) {
+      const e = document.getElementById(id);
+      if (e) e.value = v;
+    }
+
+    window.selectFoodByIndex = selectFoodByIndex; // Export to global for onclick
+
+    async function logFood() {
+      const name = gv("f-name"); if (!name) { toast("Enter food name", false); return; }
+      const r = await api("/food/log", "POST", { food_name: name, meal_type: gv("f-meal"), calories: gn("f-cal"), protein_g: gn("f-prot"), carbs_g: gn("f-carb"), fat_g: gn("f-fat") });
+      if (r?.saved) {
+        toast("Meal saved! +50 XP");
+        award_xp_frontend(50);
+        ["f-name", "f-cal", "f-prot", "f-carb", "f-fat", "f-cal-manual", "f-prot-manual", "f-carb-manual", "f-fat-manual"].forEach(id => { const e = document.getElementById(id); if (e) e.value = ""; });
+        document.getElementById("nutr-preview").classList.remove("visible");
+        document.getElementById("food-search-status").textContent = "";
+        selectedFoodBase = null;
+        loadFood();
+      }
+    }
+
+    // Simple client-side XP tracking helper (backend handles real persistence)
+    function award_xp_frontend(amount) {
+      // This is just a visual helper; actual XP is managed by backend
+    }
+    async function loadFood() {
+      const d = await api("/food/today"); if (!d) return;
+      set("f-total-cal", d.totals.calories); set("f-total-prot", d.totals.protein_g + '<span class="stat-unit">g</span>'); set("f-total-carb", d.totals.carbs_g + '<span class="stat-unit">g</span>');
+      const mb = { breakfast: "B", lunch: "L", dinner: "D", snack: "S" }; const mc = { breakfast: "🌅 BREAKFAST", lunch: "☀️ LUNCH", dinner: "🌃 DINNER", snack: "🍎 SNACK" };
+      const meals = { breakfast: [], lunch: [], dinner: [], snack: [] };
+      d.items.forEach(i => (meals[i.meal_type] || meals.snack).push(i));
+      let html = "";
+      for (const [t, items] of Object.entries(meals)) {
+        if (!items.length) continue;
+        html += `<div style="margin-bottom:18px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span class="badge badge-volt">${mc[t]}</span><span style="font-family:var(--font-num);font-size:12px;color:var(--gray1)">${items.reduce((s, i) => s + i.calories, 0)} KCAL</span></div>`;
+        html += items.map(i => `<div class="log-item"><div><div class="log-name">${i.food_name}</div><div class="log-meta">${i.protein_g}G PROT · ${i.carbs_g}G CARBS · ${i.fat_g}G FAT</div></div><div style="display:flex;align-items:center;gap:10px"><div class="log-num" style="color:var(--volt)">${i.calories}</div><button class="btn-sm" onclick="delFood(${i.id})" style="padding:4px 10px;font-size:10px">✖</button></div></div>`).join("") + "</div>";
+      }
+      set("f-list", html || '<div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No meals yet</div>');
+    }
+    async function delFood(id) { await api("/food/" + id, "DELETE"); toast("Removed"); loadFood(); }
+
+    // —-- ACTIVITY —----------------------------------------------------------------
+    async function logActivity() {
+      const dur = gn("a-dur"); if (!dur) { toast("Enter duration", false); return; }
+      const r = await api("/activity/log", "POST", { activity_type: gv("a-type"), duration_min: dur, steps: gn("a-steps") });
+      if (r?.saved) { toast(`Burned ${r.calories_burned} kcal!`); clr("a-dur"); clr("a-steps"); loadActivity(); }
+    }
+    async function loadActivity() {
+      const d = await api("/activity/today"); if (!d) return;
+
+      // Set Date and Day
+      const now = new Date();
+      set("a-date-eyebrow", now.toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase());
+      set("a-day-title", now.toLocaleDateString("en-US", { weekday: 'long' }).toUpperCase());
+
+      // Fetch Reminder
+      const rem = await api("/daily-reminder");
+      if (rem) {
+        document.getElementById("a-reminder-container").innerHTML = `
+          <div class="reminder-banner">
+            <div class="reminder-icon">💡</div>
+            <div>
+              <div class="reminder-label">Daily Motivation</div>
+              <div class="reminder-text">${rem.reminder}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      set("a-cal-tot", d.totals.calories_burned); set("a-step-tot", d.totals.steps.toLocaleString());
+      set("a-dist-tot", d.totals.distance_km + '<span class="stat-unit">km</span>');
+      set("a-list", d.items.length ? d.items.map(i => `<div class="log-item"><div class="log-dot" style="background:var(--red)"></div><div><div class="log-name">${i.activity_type.replace(/_/g, " ")}</div><div class="log-meta">${i.duration_min} MIN · ${i.steps} STEPS · ${i.distance_km} KM</div></div><div class="log-num" style="color:var(--red)">${i.calories_burned}<span class="log-unit">kcal</span></div></div>`).join("") : '<div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No activities yet</div>');
+
+      // Fetch Monthly Stats
+      const m = await api("/activity/monthly");
+      if (m) {
+        const monthName = new Date().toLocaleDateString("en-US", { month: 'long' }).toUpperCase();
+        set("a-month-name", monthName);
+        set("a-month-cal", m.totals.calories_burned);
+        set("a-month-steps", m.totals.steps.toLocaleString());
+        set("a-month-dist", m.totals.distance_km + ' km');
+        set("a-month-count", m.days_logged);
+      }
+    }
+
+
+    async function resetActivity() {
+      if (!confirm("Are you sure you want to PERMANENTLY reset all your activity data? This cannot be undone.")) return;
+
+      const r = await api("/activity/reset", "DELETE");
+      if (r?.reset) {
+        toast("Activity data cleared");
+        loadActivity();
+      }
+    }
+
+    async function predictBurn() {
+      const dur = gn("xgb-dur");
+      const hr = gn("xgb-hr");
+      if (!dur || !hr) { toast("Enter duration and heart rate", false); return; }
+
+      const wt = user.weight_kg || 70.0;
+      const btn = event.target;
+      const originalText = btn.textContent;
+      btn.textContent = "PREDICTING...";
+      btn.style.opacity = "0.7";
+
+      const r = await api("/ai/predict-calories", "POST", { duration_min: dur, weight_kg: wt, heart_rate_avg: hr });
+
+      btn.textContent = originalText;
+      btn.style.opacity = "1";
+
+      if (r?.predicted_calories !== undefined) {
+        document.getElementById("xgb-result").style.display = "block";
+        const el = document.getElementById("xgb-cal-val");
+        let start = 0; const target = r.predicted_calories;
+        const int = setInterval(() => {
+          start += Math.max(1, target / 20);
+          if (start >= target) { start = target; clearInterval(int); }
+          el.textContent = Math.round(start);
+        }, 30);
+        toast(`Prediction generated using ${r.algorithm}`);
+      }
+    }
+
+    // —-- WATER —-------------------------------------------------------------------
+    async function logWater(ml) { const r = await api("/water/log", "POST", { amount_ml: ml }); if (r?.saved) { toast(`+${ml}ml`); loadWater(); } }
+    async function loadWater() { const d = await api("/dashboard/today"); if (!d) return; set("w-total", d.water_L + '<span class="stat-unit">L</span>'); set("w-goal-lbl", d.water_goal_L); document.getElementById("w-bar").style.width = d.water_pct + "%"; }
+
+    // —-- SLEEP —-------------------------------------------------------------------
+    function setStar(n) { sleepRating = n; document.querySelectorAll(".star").forEach((s, i) => s.classList.toggle("on", i < n)); const l = ["", "POOR", "FAIR", "GOOD", "VERY GOOD", "EXCELLENT"]; set("star-lbl", l[n]); }
+    async function logSleep() {
+      const hrs = gn("sl-hrs"); if (!hrs) { toast("Enter hours", false); return; }
+      const r = await api("/sleep/log", "POST", { hours: hrs, quality: sleepRating, bedtime: gv("sl-bed"), wake_time: gv("sl-wake"), notes: gv("sl-notes") });
+      if (r?.saved) { toast("Sleep saved!"); clr("sl-hrs"); clr("sl-notes"); loadSleep(); }
+    }
+    async function loadSleep() {
+      const d = await api("/sleep/recent"); if (!d) return;
+      set("sl-avg", d.avg_hours ? `AVG: ${d.avg_hours}H` : "");
+      set("sl-list", d.entries.length ? d.entries.map(e => `<div class="log-item"><div><div class="log-name">${e.date}</div><div class="log-meta">${[e.bedtime, e.wake_time].filter(Boolean).join(" → ")}</div></div><div style="text-align:right"><div class="log-num" style="color:#b388ff">${e.hours}H</div><div style="color:var(--volt);letter-spacing:.05em">${"★".repeat(e.quality || 0)}</div></div></div>`).join("") : '<div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No sleep data yet</div>');
+    }
+
+    // —-- HEART RATE —--------------------------------------------------------------
+    async function logHR() { const bpm = gn("hr-bpm"); if (!bpm) { toast("Enter BPM", false); return; } const r = await api("/heartrate/log", "POST", { bpm, context: gv("hr-ctx") }); if (r?.saved) { toast("Saved!"); clr("hr-bpm"); loadHR(); } }
+    async function loadHR() {
+      const d = await api("/heartrate/recent"); if (!d) return;
+      set("hr-avg", d.avg_resting_bpm ? `AVG RESTING: ${d.avg_resting_bpm} BPM` : "");
+      set("hr-list", d.entries.length ? d.entries.slice(0, 8).map(e => `<div class="log-item"><div class="log-dot" style="background:${e.bpm >= 100 ? "var(--red)" : e.bpm <= 60 ? "var(--volt)" : "var(--orange)"}"></div><div><div class="log-name">${e.bpm} BPM</div><div class="log-meta">${e.context.replace(/_/g, " ").toUpperCase()} · ${e.date}</div></div><div class="log-num" style="color:var(--red)">${e.bpm >= 100 ? "🚨" : e.bpm <= 60 ? "🔵" : "🟠"}</div></div>`).join("") : '<div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No readings yet</div>');
+    }
+
+    // —-- MEASUREMENTS —------------------------------------------------------------
+    async function logMeasurement() {
+      const r = await api("/measurements/log", "POST", { weight_kg: gn("m-wt") || null, chest_cm: gn("m-chest") || null, waist_cm: gn("m-waist") || null, arms_cm: gn("m-arms") || null, hips_cm: gn("m-hips") || null });
+      if (r?.saved) { toast("Saved!");["m-wt", "m-chest", "m-waist", "m-arms", "m-hips"].forEach(id => clr(id)); loadMeasurements(); }
+    }
+    async function loadMeasurements() {
+      const d = await api("/measurements/history"); if (!d) return;
+      set("m-list", d.entries.length ? d.entries.map(e => `<div class="log-item"><div><div class="log-name">${e.date}</div><div class="log-meta">${[e.weight_kg ? "WT:" + e.weight_kg + "kg" : "", e.chest_cm ? "CHEST:" + e.chest_cm : "", e.waist_cm ? "WAIST:" + e.waist_cm : "", e.arms_cm ? "ARMS:" + e.arms_cm + "" : ""].filter(Boolean).join(" · ")}</div></div></div>`).join("") : '<div style="font-family:var(--font-num);color:var(--gray1);font-size:13px">No measurements yet</div>');
+    }
+
+    // —-- WORKOUT PLANS —-----------------------------------------------------------
+    async function loadWorkouts() {
+      const d = await api("/workout/plans"); if (!d) return;
+      const lvl = { beginner: "badge-volt", intermediate: "badge-orange", advanced: "badge-red" };
+      set("plans-grid", d.plans.map(p => `<div class="plan-card" onclick="showPlan(${p.id})"><span class="badge ${lvl[p.level] || "badge-volt"}">${p.level.toUpperCase()}</span><div class="plan-card-name">${p.name.toUpperCase()}</div><div class="plan-card-meta">${p.description}</div><div class="plan-card-days">${p.days_per_week}× PER WEEK →</div></div>`).join(""));
+    }
+    async function showPlan(id) {
+      const p = await api("/workout/plan/" + id); if (!p) return;
+      set("plan-detail-name", p.name.toUpperCase());
+      set("plan-detail-body", `<div style="font-family:var(--font-num);font-size:13px;color:var(--gray1);margin-bottom:18px">${p.description} · ${p.days_per_week} days per week</div>${p.exercises.map(e => `<div class="exercise-row"><div><div class="exercise-name">${e.name}</div><div class="exercise-muscle">${e.muscle}</div></div><div><div class="exercise-sets">${e.sets}×</div><div class="exercise-reps">${e.reps}</div></div></div>`).join("")}`);
+      document.getElementById("plan-detail").style.display = "block";
+      document.getElementById("plan-detail").scrollIntoView({ behavior: "smooth" });
+    }
+    function closePlan() { document.getElementById("plan-detail").style.display = "none"; }
+
+    // —-- CALCULATORS —-------------------------------------------------------------
+    async function calcBMI() {
+      const wt = gn("bmi-wt"), ht = gn("bmi-ht"); if (!wt || !ht) { toast("Enter weight and height", false); return; }
+      const d = await api(`/calculator/bmi?weight_kg=${wt}&height_cm=${ht}`); if (!d) return;
+      document.getElementById("bmi-result").style.display = "block";
+      set("bmi-val", d.bmi);
+      const cats = { "Underweight": { bg: "rgba(51,153,255,.15)", c: "var(--blue)" }, "Normal weight": { bg: "rgba(200,255,0,.15)", c: "var(--volt)" }, "Overweight": { bg: "rgba(255,102,0,.15)", c: "var(--orange)" }, "Obese": { bg: "rgba(255,51,51,.15)", c: "var(--red)" } };
+      const s = cats[d.category] || cats["Normal weight"];
+      const cat = document.getElementById("bmi-cat"); cat.textContent = d.category; cat.style.background = s.bg; cat.style.color = s.c;
+      document.getElementById("bmi-needle").style.left = Math.min(95, Math.max(5, (d.bmi - 15) / 25 * 100)) + "%";
+    }
+    async function calcCals() {
+      const ag = gn("cc-age"), wt = gn("cc-wt"), ht = gn("cc-ht"); if (!ag || !wt || !ht) { toast("Fill all fields", false); return; }
+      const d = await api(`/calculator/calories?age=${ag}&weight_kg=${wt}&height_cm=${ht}&gender=${gv("cc-gender")}&activity=${gv("cc-act")}`); if (!d) return;
+      document.getElementById("cc-result").style.display = "block";
+      set("cc-bmr", d.bmr); set("cc-tdee", d.tdee); set("cc-lose", d.weight_loss); set("cc-prot", d.protein_g); set("cc-carb", d.carbs_g); set("cc-fat", d.fat_g);
+    }
+
+    // —-- HISTORY —-----------------------------------------------------------------
+    async function loadHistory() {
+      const d = await api("/history/week"); if (!d) return;
+      const week = [...d.week].reverse();
+      const labels = week.map(r => r.date.slice(5));
+      const chartCfg = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: "#888", font: { family: "Rajdhani", size: 12 } } } }, scales: { x: { ticks: { color: "#888", font: { family: "Rajdhani" } }, grid: { color: "rgba(255,255,255,.04)" } }, y: { ticks: { color: "#888", font: { family: "Rajdhani" } }, grid: { color: "rgba(255,255,255,.04)" } } } };
+      if (calChart) calChart.destroy();
+      calChart = new Chart(document.getElementById("cal-chart"), { type: "bar", data: { labels, datasets: [{ label: "In", data: week.map(r => Math.round(r.cal_in || 0)), backgroundColor: "rgba(200,255,0,.6)", borderRadius: 4, borderSkipped: false }, { label: "Burned", data: week.map(r => Math.round(r.cal_out || 0)), backgroundColor: "rgba(255,51,51,.6)", borderRadius: 4, borderSkipped: false }] }, options: chartCfg });
+      if (stepChart) stepChart.destroy();
+      stepChart = new Chart(document.getElementById("step-chart"), { type: "line", data: { labels, datasets: [{ label: "Steps", data: week.map(r => Math.round(r.steps || 0)), borderColor: "#3399ff", backgroundColor: "rgba(51,153,255,.08)", tension: .4, fill: true, pointBackgroundColor: "#3399ff", pointRadius: 4 }] }, options: chartCfg });
+    }
+
+    // —-- PROFILE —-----------------------------------------------------------------
+    async function loadProfile() {
+      const d = await api("/user/profile"); if (!d) return;
+      const map = { name: "g-name", age: "g-age", gender: "g-gender", weight_kg: "g-wt", height_cm: "g-ht", calorie_goal: "g-cal", step_goal: "g-steps", water_goal: "g-water" };
+      for (const [k, id] of Object.entries(map)) { const e = document.getElementById(id); if (e && d[k] != null) e.value = d[k]; }
+    }
+    async function saveProfile() {
+      const r = await api("/user/profile", "PUT", { name: gv("g-name"), age: parseInt(gv("g-age")) || null, gender: gv("g-gender"), weight_kg: parseFloat(gv("g-wt")) || null, height_cm: parseFloat(gv("g-ht")) || null, calorie_goal: parseInt(gv("g-cal")) || null, step_goal: parseInt(gv("g-steps")) || null, water_goal: parseFloat(gv("g-water")) || null });
+      if (r?.updated) { toast("Profile saved!"); user.name = gv("g-name"); /* document.getElementById("sb-name").textContent = user.name; document.getElementById("sb-avatar").textContent = user.name.charAt(0).toUpperCase();*/ }
+    }
+
+    // —-- UTILS —-------------------------------------------------------------------
+    function set(id, v) { const e = document.getElementById(id); if (e) e.innerHTML = v; }
+    function gv(id) { return document.getElementById(id)?.value || ""; }
+    function gn(id) { return parseFloat(document.getElementById(id)?.value) || 0; }
+    function clr(id) { const e = document.getElementById(id); if (e) e.value = ""; }
+
+    function toast(msg, ok = true) {
+      const t = document.getElementById("toast");
+      t.textContent = msg; t.style.background = ok ? "var(--volt)" : "var(--red)"; t.style.color = ok ? "#000" : "#fff";
+      t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2600);
+    }
+
+    // —-- AI COACH LOGIC —----------------------------------------------------------
+    let pose, camera, aiActive = false, repCount = 0, aiState = "up", aiProg = 0;
+    const canvasElement = document.getElementById('ai-canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    const videoElement = document.getElementById('ai-video');
+
+    function onPoseResults(results) {
+      if (!aiActive) return;
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+      if (results.poseLandmarks) {
+        drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#c8ff00', lineWidth: 2 });
+        drawLandmarks(canvasCtx, results.poseLandmarks, { color: '#ffffff', lineWidth: 1, radius: 2 });
+        processReps(results.poseLandmarks);
+      }
+      canvasCtx.restore();
+    }
+
+    function processReps(landmarks) {
+      const type = gv("ai-type");
+      if (type === "SQUATS") {
+        const lHip = landmarks[23], lKnee = landmarks[25], lAnkle = landmarks[27];
+        const angle = calculateAngle(lHip, lKnee, lAnkle);
+        aiProg = Math.min(100, Math.max(0, (170 - angle) / 90 * 100));
+        set("ai-prog", Math.round(aiProg) + "%");
+
+        if (angle < 90 && aiState === "up") {
+          aiState = "down";
+        } else if (angle > 160 && aiState === "down") {
+          repCount++;
+          aiState = "up";
+          set("ai-reps", repCount);
+          toast("Rep " + repCount + "!");
+        }
+        document.getElementById("ai-feedback").style.display = (angle > 100 && aiState === "down") ? "block" : "none";
+      } else if (type === "PUSHUPS") {
+        const lShoulder = landmarks[11], lElbow = landmarks[13], lWrist = landmarks[15];
+        const angle = calculateAngle(lShoulder, lElbow, lWrist);
+        aiProg = Math.min(100, Math.max(0, (160 - angle) / 80 * 100));
+        set("ai-prog", Math.round(aiProg) + "%");
+
+        if (angle < 80 && aiState === "up") {
+          aiState = "down";
+        } else if (angle > 150 && aiState === "down") {
+          repCount++;
+          aiState = "up";
+          set("ai-reps", repCount);
+          toast("Rep " + repCount + "!");
+        }
+        document.getElementById("ai-feedback").style.display = (angle > 90 && aiState === "down") ? "block" : "none";
+      }
+    }
+
+    function calculateAngle(a, b, c) {
+      const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+      let angle = Math.abs(radians * 180.0 / Math.PI);
+      if (angle > 180.0) angle = 360 - angle;
+      return angle;
+    }
+
+    async function startAICoach() {
+      if (!pose) {
+        pose = new Pose({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` });
+        pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        pose.onResults(onPoseResults);
+      }
+
+      aiActive = true;
+      repCount = 0;
+      set("ai-reps", 0);
+      document.getElementById("btn-start-ai").style.display = "none";
+      document.getElementById("btn-stop-ai").style.display = "block";
+
+      camera = new Camera(videoElement, {
+        onFrame: async () => { await pose.send({ image: videoElement }); },
+        width: 1280, height: 720
+      });
+      camera.start();
+    }
+
+    async function stopAICoach() {
+      aiActive = false;
+      if (camera) await camera.stop();
+      document.getElementById("btn-start-ai").style.display = "block";
+      document.getElementById("btn-stop-ai").style.display = "none";
+
+      if (repCount > 0) {
+        const type = gv("ai-type");
+        await api("/activity/log", "POST", { activity_type: type, duration_min: 1, steps: 0 });
+        toast("Session Saved: " + repCount + " Reps", true);
+        loadActivity();
+      }
+    }
+
+    // ── FASTING TRACKER ────────────────────────────────────────────────
+    let fastingProtocol = '16:8';
+    let fastingInterval = null;
+    let activeFastId = null;
+    let fastNotified = false;
+
+    function selectProtocol(proto, btn) {
+      fastingProtocol = proto;
+      document.querySelectorAll('.fast-protocol-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      const goalHours = parseInt(proto.split(':')[0]);
+      set('fast-goal-hours', goalHours);
+    }
+
+    async function startFast() {
+      const r = await api('/fasting/start', 'POST', { protocol: fastingProtocol });
+      if (r && r.status === 'success') {
+        toast('⏱️ Fast started! Stay strong!');
+        fastNotified = false;
+        loadFasting();
+      }
+    }
+
+    async function endFast() {
+      if (!activeFastId) return;
+      const r = await api('/fasting/end', 'POST', { fast_id: activeFastId });
+      if (r && r.status === 'success') {
+        toast('🍽️ Fast ended! +150 XP earned!');
+        if (fastingInterval) clearInterval(fastingInterval);
+        fastingInterval = null;
+        activeFastId = null;
+        loadFasting();
+      }
+    }
+
+    async function loadFasting() {
+      const status = await api('/fasting/status');
+      const goalHours = parseInt(fastingProtocol.split(':')[0]);
+      set('fast-goal-hours', goalHours);
+
+      if (status && status.is_active) {
+        activeFastId = status.id;
+        fastingProtocol = status.protocol || '16:8';
+        const fGoal = parseInt(fastingProtocol.split(':')[0]);
+        set('fast-goal-hours', fGoal);
+
+        // Highlight the correct protocol button
+        document.querySelectorAll('.fast-protocol-btn').forEach(btn => {
+          btn.classList.toggle('selected', btn.textContent.trim().startsWith(fastingProtocol));
+        });
+
+        document.getElementById('btn-start-fast').style.display = 'none';
+        document.getElementById('btn-end-fast').style.display = 'block';
+
+        // Update status pill
+        const pill = document.getElementById('fast-status-pill');
+        pill.className = 'fast-status-pill fasting';
+        pill.innerHTML = '🔥 FASTING IN PROGRESS';
+
+        // Show start time
+        const startDate = new Date(status.start_time);
+        set('fast-start-time', startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+
+        // Calculate eating window start
+        const endDate = new Date(startDate.getTime() + fGoal * 60 * 60 * 1000);
+        set('fast-end-time', endDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+
+        // Activate pulse animation
+        document.getElementById('fast-timer-wrap').classList.add('active');
+
+        // Start live timer
+        if (fastingInterval) clearInterval(fastingInterval);
+        updateFastTimer(startDate, fGoal);
+        fastingInterval = setInterval(() => updateFastTimer(startDate, fGoal), 1000);
+      } else {
+        activeFastId = null;
+        document.getElementById('btn-start-fast').style.display = 'block';
+        document.getElementById('btn-end-fast').style.display = 'none';
+
+        const pill = document.getElementById('fast-status-pill');
+        pill.className = 'fast-status-pill idle';
+        pill.innerHTML = '⏸ NO ACTIVE FAST';
+
+        set('fast-time-display', '00:00');
+        set('fast-time-label', 'HOURS : MINUTES');
+        set('fast-start-time', '--:--');
+        set('fast-end-time', '--:--');
+        set('fast-remaining', '--:--');
+
+        document.getElementById('fast-timer-wrap').classList.remove('active');
+
+        // Reset ring
+        const fill = document.getElementById('fast-ring-fill');
+        const glow = document.getElementById('fast-ring-glow');
+        if (fill) fill.style.strokeDashoffset = 691.15;
+        if (glow) glow.style.strokeDashoffset = 691.15;
+
+        if (fastingInterval) clearInterval(fastingInterval);
+        fastingInterval = null;
+      }
+    }
+
+    function updateFastTimer(startDate, goalHours) {
+      const now = new Date();
+      const elapsed = (now - startDate) / 1000; // seconds
+      const totalGoalSec = goalHours * 3600;
+      const pct = Math.min(1, elapsed / totalGoalSec);
+
+      // Time display
+      const elapsedHrs = Math.floor(elapsed / 3600);
+      const elapsedMins = Math.floor((elapsed % 3600) / 60);
+      const elapsedSecs = Math.floor(elapsed % 60);
+      set('fast-time-display', `${String(elapsedHrs).padStart(2, '0')}:${String(elapsedMins).padStart(2, '0')}`);
+      set('fast-time-label', `${String(elapsedSecs).padStart(2, '0')} SEC ELAPSED`);
+
+      // Remaining
+      const remainSec = Math.max(0, totalGoalSec - elapsed);
+      const remHrs = Math.floor(remainSec / 3600);
+      const remMins = Math.floor((remainSec % 3600) / 60);
+      set('fast-remaining', remainSec > 0 ? `${remHrs}h ${remMins}m` : 'DONE!');
+
+      // Ring animation (circumference = 2 * pi * 110 = 691.15)
+      const circ = 691.15;
+      const offset = circ - (circ * pct);
+      const fill = document.getElementById('fast-ring-fill');
+      const glow = document.getElementById('fast-ring-glow');
+      if (fill) fill.style.strokeDashoffset = offset;
+      if (glow) glow.style.strokeDashoffset = offset;
+
+      // Change color when past goal
+      if (pct >= 1) {
+        if (fill) fill.setAttribute('stroke', '#00e5ff');
+        if (glow) glow.setAttribute('stroke', '#00e5ff');
+        set('fast-time-label', '✅ GOAL REACHED!');
+
+        const pill = document.getElementById('fast-status-pill');
+        pill.className = 'fast-status-pill eating';
+        pill.innerHTML = '✅ FASTING GOAL REACHED';
+
+        // Toast notification when fasting window is over
+        if (!fastNotified) {
+          fastNotified = true;
+          toast('🎉 Fasting window complete! You can eat now.', true);
+        }
+      } else {
+        if (fill) fill.setAttribute('stroke', 'var(--volt)');
+        if (glow) glow.setAttribute('stroke', 'var(--volt)');
+      }
+    }
+
+    // ── GAMIFICATION ───────────────────────────────────────────────────
+    const ALL_BADGES = [
+      { id: 'first_meal', name: 'First Bite', icon: '🥇', desc: 'Log your first meal', type: 'milestone' },
+      { id: 'first_workout', name: 'First Sweat', icon: '💪', desc: 'Complete your first workout', type: 'milestone' },
+      { id: 'hydration_hero', name: 'Hydration Hero', icon: '💧', desc: 'Meet water goal 10 days', type: 'streak' },
+      { id: 'night_owl', name: 'Night Owl', icon: '🦉', desc: 'Log sleep 7 days in a row', type: 'streak' },
+      { id: 'calorie_master', name: 'Calorie Master', icon: '🔥', desc: 'Stay within calorie goal 7 days', type: 'streak' },
+      { id: 'step_champion', name: 'Step Champion', icon: '👟', desc: 'Hit 10,000 steps in one day', type: 'milestone' },
+      { id: 'iron_will', name: 'Iron Will', icon: '🏋️', desc: 'Log 20 workouts total', type: 'milestone' },
+      { id: 'fast_master', name: 'Fast Master', icon: '⏱️', desc: 'Complete 5 fasting sessions', type: 'milestone' },
+      { id: 'century', name: 'Century Club', icon: '💯', desc: 'Earn 10,000 total XP', type: 'milestone' },
+      { id: 'early_bird', name: 'Early Bird', icon: '🌅', desc: 'Log activity before 7 AM', type: 'milestone' },
+      { id: 'consistency', name: 'Consistency King', icon: '👑', desc: 'Use the app 30 days total', type: 'streak' },
+      { id: 'macro_pro', name: 'Macro Pro', icon: '📊', desc: 'Log 100 meals with macros', type: 'milestone' },
+    ];
+
+    async function loadGamification() {
+      const d = await api('/gamification/status');
+      if (!d) return;
+
+      const xp = d.xp || 0;
+      const level = d.level || 1;
+      const title = (d.title || 'Rookie').toUpperCase();
+      const achievements = d.achievements || [];
+
+      // Level & Title
+      set('gami-level', level);
+      set('gami-level-name', title);
+
+      // Avatar based on tier
+      const avatarMap = { 'ROOKIE': '🏃', 'PRO': '⚡', 'ELITE ATHLETE': '👑' };
+      set('gami-avatar', avatarMap[title] || '🏃');
+
+      // XP bar (progress within current level)
+      const xpInLevel = xp % 1000;
+      const xpForNext = 1000;
+      const xpPct = Math.min(100, (xpInLevel / xpForNext) * 100);
+      set('gami-xp-text', `${xpInLevel.toLocaleString()} / ${xpForNext.toLocaleString()} XP`);
+      document.getElementById('gami-xp-fill').style.width = xpPct + '%';
+
+      // Stats
+      set('gami-total-xp', xp.toLocaleString());
+      set('gami-badge-count', achievements.length);
+      set('gami-next-lvl', (xpForNext - xpInLevel).toLocaleString());
+
+      // Tier track
+      const tierRookie = document.getElementById('tier-rookie');
+      const tierPro = document.getElementById('tier-pro');
+      const tierElite = document.getElementById('tier-elite');
+
+      // Reset all
+      [tierRookie, tierPro, tierElite].forEach(t => {
+        if (t) { t.className = 'gami-tier-dot'; }
+      });
+      document.querySelectorAll('.gami-tier-lbl').forEach(l => l.classList.remove('active'));
+
+      if (level >= 10) {
+        tierRookie.classList.add('reached');
+        tierPro.classList.add('reached');
+        tierElite.classList.add('current');
+        tierElite.parentElement.querySelector('.gami-tier-lbl').classList.add('active');
+      } else if (level >= 5) {
+        tierRookie.classList.add('reached');
+        tierPro.classList.add('current');
+        tierPro.parentElement.querySelector('.gami-tier-lbl').classList.add('active');
+      } else {
+        tierRookie.classList.add('current');
+        tierRookie.parentElement.querySelector('.gami-tier-lbl').classList.add('active');
+      }
+
+      // Badges
+      const unlockedNames = new Set(achievements.map(a => a.badge_type));
+      set('gami-unlocked-label', `${achievements.length} UNLOCKED`);
+
+      const badgesHtml = ALL_BADGES.map(badge => {
+        const isUnlocked = unlockedNames.has(badge.id);
+        const achievement = achievements.find(a => a.badge_type === badge.id);
+        return `
+          <div class="gami-badge-card ${isUnlocked ? 'unlocked' : 'locked'}">
+            <div class="gami-badge-icon">${badge.icon}</div>
+            <div class="gami-badge-name">${badge.name.toUpperCase()}</div>
+            <div class="gami-badge-desc">${badge.desc}</div>
+            ${isUnlocked ? `<div class="gami-badge-date">🏆 Unlocked ${achievement ? new Date(achievement.unlocked_at).toLocaleDateString() : ''}</div>` : '<div class="gami-badge-date" style="color:var(--gray2)">🔒 Locked</div>'}
+          </div>
+        `;
+      }).join('');
+      set('gami-badges-grid', badgesHtml);
+    }
+  </script>
+</body>
+
+</html>
